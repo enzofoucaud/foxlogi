@@ -1,0 +1,57 @@
+// Package bot wires Discord slash commands and notifications to the craft domain.
+package bot
+
+import (
+	"log"
+
+	"github.com/bwmarrin/discordgo"
+)
+
+// Command is a single slash command. Adding a new feature to the bot means
+// implementing this interface and passing it to NewRegistry — nothing else in
+// the bot layer needs to change.
+type Command interface {
+	// Definition returns the Discord application command schema to register.
+	Definition() *discordgo.ApplicationCommand
+	// Handle processes an incoming interaction for this command.
+	Handle(s *discordgo.Session, i *discordgo.InteractionCreate)
+}
+
+// Registry holds the bot's commands and dispatches interactions to them.
+type Registry struct {
+	commands map[string]Command
+}
+
+// NewRegistry builds the registry from the given commands, keyed by name.
+func NewRegistry(cmds ...Command) *Registry {
+	r := &Registry{commands: make(map[string]Command, len(cmds))}
+	for _, c := range cmds {
+		r.commands[c.Definition().Name] = c
+	}
+	return r
+}
+
+// Register publishes every command's definition to Discord for the given guild.
+// An empty guildID registers the commands globally.
+func (r *Registry) Register(s *discordgo.Session, guildID string) error {
+	for _, c := range r.commands {
+		if _, err := s.ApplicationCommandCreate(s.State.User.ID, guildID, c.Definition()); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Dispatch routes an application-command interaction to its handler.
+func (r *Registry) Dispatch(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	if i.Type != discordgo.InteractionApplicationCommand {
+		return
+	}
+	name := i.ApplicationCommandData().Name
+	cmd, ok := r.commands[name]
+	if !ok {
+		log.Printf("no handler for command %q", name)
+		return
+	}
+	cmd.Handle(s, i)
+}

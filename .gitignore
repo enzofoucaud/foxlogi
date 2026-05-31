@@ -1,0 +1,15 @@
+# AI
+/_bmad
+/_bmad-output
+/.claude
+
+# Secrets — never commit the bot token
+.env
+
+# SQLite database files
+*.db
+*.db-wal
+*.db-shm
+
+# Built binary
+/foxlogi
