@@ -131,12 +131,32 @@ Run `make help` to list all targets:
 
 ## Commands
 
+### Craft tracking — `/craft`
+
 - `/craft add item:<name> duration:<30m|1h30m> [quantity:<n>]` — register a craft.
 - `/craft list` — list active crafts with remaining time.
 
 When a craft reaches its completion time the bot pings the player in the channel
 where it was registered, then removes the craft. There is no manual "done"
 command by design.
+
+### Logistics requests — `/request`
+
+A request groups one or more item lines to deliver to a location; anyone can
+contribute partial quantities until it's fulfilled.
+
+- `/request new location:<place> [priority:high|medium|low] [deadline:YYYY-MM-DD]` —
+  open a request (priority defaults to `medium`).
+- `/request additem id:<n> item:<name> quantity:<n>` — add an item line to your
+  request (requester only; a repeated item name merges into the existing line).
+- `/request list` — list open requests, ordered by priority, with each line's
+  `delivered/total` and the delivery location.
+- `/request fill id:<n> item:<name> quantity:<n>` — record a contribution to an
+  item line (surplus accepted). The requester is pinged on every contribution.
+- `/request cancel id:<n>` — cancel your own request (requester only).
+
+When every line of a request is fully delivered, the bot posts a fulfilled
+notice pinging the requester and removes the request automatically.
 
 ## Development
 
