@@ -170,17 +170,21 @@ go test ./...    # run the storage tests
 
 The code is layered so storage and Discord concerns stay decoupled:
 
-- `internal/craft` — domain model `Craft` and the storage-agnostic `Repository`
-  interface. Nothing here imports Discord or SQLite.
-- `internal/storage/sqlite` — `Repository` implementations over SQLite
-  (`modernc.org/sqlite`, pure Go / no CGO). `sqlite.go` owns only the shared
-  connection (open, migrate, close); each feature's queries live in its own file
-  (`craft.go`, `request.go`). Swappable for another backend.
-- `internal/bot` — slash commands and the completion scheduler. Depends only on
-  `craft.Repository`, never on the concrete storage type.
-- `internal/config` — environment configuration.
+- `internal/craft` — domain model `Craft` and its storage-agnostic `Repository`
+  interface (craft tracking). Nothing here imports Discord or SQLite.
+- `internal/request` — domain models `Request` / `RequestItem` and their
+  `Repository` interface (logistics request board). Storage- and Discord-agnostic.
+- `internal/storage/sqlite` — implementations of both `Repository` interfaces over
+  SQLite (`modernc.org/sqlite`, pure Go / no CGO), sharing one connection.
+  `sqlite.go` owns only the shared connection (open, migrate, close); each
+  feature's queries live in its own file (`craft.go`, `request.go`). Swappable
+  for another backend.
+- `internal/bot` — slash commands (the `Command` registry) and the craft
+  completion scheduler. Depends only on the `craft.Repository` /
+  `request.Repository` interfaces, never on the concrete storage type.
+- `internal/config` — environment configuration (Viper).
 - `main.go` — the only place that constructs the concrete repository and injects
-  it into the bot.
+  it into the commands and scheduler.
 
 ### Adding a command
 
