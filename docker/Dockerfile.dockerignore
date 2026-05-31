@@ -1,0 +1,23 @@
+# Ignore rules for the Dockerfile build (paths are relative to the build
+# context, which is the project root). BuildKit picks up this file because it
+# sits next to the Dockerfile as <Dockerfile>.dockerignore.
+
+# Version control & tooling
+.git
+.gitignore
+
+# Secrets and local data — never bake these into the image
+.env
+*.db
+*.db-wal
+*.db-shm
+
+# AI / planning artifacts
+_bmad
+_bmad-output
+.claude
+
+# Docs & container/build files (not needed in the build context)
+README.md
+Makefile
+docker

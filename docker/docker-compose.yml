@@ -1,0 +1,21 @@
+name: foxlogi
+
+services:
+  foxlogi:
+    build:
+      # Build from the project root so go.mod and the source are in context.
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: foxlogi:latest
+    container_name: foxlogi
+    restart: unless-stopped
+    # Loads DISCORD_TOKEN (and optionally CRAFT_DB_PATH / SOON_THRESHOLD) from
+    # the project-root .env (path is relative to this compose file).
+    env_file:
+      - ../.env
+    volumes:
+      # Persists the SQLite database across restarts and redeploys.
+      - foxlogi-data:/data
+
+volumes:
+  foxlogi-data:

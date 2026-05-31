@@ -90,6 +90,45 @@ go build -o foxlogi .
 ./foxlogi
 ```
 
+## Deploy with Docker
+
+Everything Docker-related lives in [`docker/`](docker/). The image is a small
+(~30 MB) Alpine image wrapping a static, CGO-free binary; the SQLite database is
+persisted on the `foxlogi-data` volume.
+
+On the server, create the `.env` (see **Run** above), then:
+
+```sh
+make docker-up      # build + start in the background
+make docker-logs    # follow logs
+make docker-down    # stop and remove
+make docker-restart # rebuild + restart after an update
+```
+
+Or with Compose directly (run from the project root):
+
+```sh
+docker compose -f docker/docker-compose.yml up -d --build
+```
+
+The Compose file reads the project-root `.env`, sets `CRAFT_DB_PATH=/data/foxlogi.db`,
+and registers commands per guild on startup.
+
+## Makefile
+
+Run `make help` to list all targets:
+
+| Target           | Description                              |
+|------------------|------------------------------------------|
+| `make run`       | Run the bot locally (reads `.env`)       |
+| `make build`     | Build the binary                         |
+| `make test`      | Run all tests                            |
+| `make vet`       | Run `go vet`                             |
+| `make fmt`       | Format the code                          |
+| `make tidy`      | Tidy `go.mod` / `go.sum`                 |
+| `make clean`     | Remove build artifacts and local `*.db`  |
+| `make docker-*`  | Build / up / down / restart / logs       |
+
 ## Commands
 
 - `/craft add item:<name> duration:<30m|1h30m> [quantity:<n>]` — register a craft.
