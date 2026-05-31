@@ -6,7 +6,7 @@ notification in-channel when a craft is ready — then removes it automatically.
 
 ## Requirements
 
-- Go 1.26+ (required by the `modernc.org/sqlite` driver)
+- Go 1.26+ (project baseline; the `modernc.org/sqlite` driver needs ≥ 1.25)
 - A Discord bot application (see **Discord setup** below)
 
 ## Discord setup
