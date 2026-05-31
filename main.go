@@ -38,6 +38,7 @@ func main() {
 	// another bot.Command here.
 	registry := bot.NewRegistry(
 		bot.NewCraftCommand(repo, cfg.SoonThreshold),
+		bot.NewRequestCommand(repo),
 	)
 
 	session.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {

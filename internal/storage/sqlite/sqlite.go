@@ -1,5 +1,7 @@
-// Package sqlite provides a craft.Repository backed by SQLite via the pure-Go
-// modernc.org/sqlite driver (no CGO required).
+// Package sqlite provides craft.Repository and request.Repository backed by
+// SQLite via the pure-Go modernc.org/sqlite driver (no CGO required). A single
+// *sql.DB is shared by both so the connection cap and pragmas hold across all
+// features.
 package sqlite
 
 import (
@@ -25,6 +27,27 @@ CREATE TABLE IF NOT EXISTS crafts (
 );
 CREATE INDEX IF NOT EXISTS idx_crafts_guild ON crafts(guild_id);
 CREATE INDEX IF NOT EXISTS idx_crafts_completion ON crafts(completion);
+
+CREATE TABLE IF NOT EXISTS requests (
+	id          INTEGER PRIMARY KEY AUTOINCREMENT,
+	guild_id    TEXT    NOT NULL,
+	channel_id  TEXT    NOT NULL,
+	user_id     TEXT    NOT NULL,
+	location    TEXT    NOT NULL,
+	priority    TEXT    NOT NULL,
+	deadline    INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_requests_guild ON requests(guild_id);
+
+CREATE TABLE IF NOT EXISTS request_items (
+	id          INTEGER PRIMARY KEY AUTOINCREMENT,
+	request_id  INTEGER NOT NULL,
+	item        TEXT    NOT NULL,
+	quantity    INTEGER NOT NULL,
+	delivered   INTEGER NOT NULL DEFAULT 0,
+	FOREIGN KEY (request_id) REFERENCES requests(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_request_items_request ON request_items(request_id);
 `
 
 // Repo is a SQLite-backed craft.Repository.
@@ -38,7 +61,8 @@ func Open(path string) (*Repo, error) {
 	// busy_timeout lets writes wait instead of failing with SQLITE_BUSY; capping
 	// the pool at a single connection serialises the scheduler goroutine and the
 	// command handlers, eliminating "database is locked" under concurrent access.
-	dsn := fmt.Sprintf("file:%s?_pragma=busy_timeout(5000)", path)
+	// foreign_keys enables ON DELETE CASCADE for request_items.
+	dsn := fmt.Sprintf("file:%s?_pragma=busy_timeout(5000)&_pragma=foreign_keys(1)", path)
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("open sqlite: %w", err)
