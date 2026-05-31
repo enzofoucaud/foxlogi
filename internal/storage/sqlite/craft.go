@@ -9,22 +9,6 @@ import (
 	"foxlogi/internal/craft"
 )
 
-const craftSchema = `
-CREATE TABLE IF NOT EXISTS crafts (
-	id          INTEGER PRIMARY KEY AUTOINCREMENT,
-	guild_id    TEXT    NOT NULL,
-	channel_id  TEXT    NOT NULL,
-	user_id     TEXT    NOT NULL,
-	item        TEXT    NOT NULL,
-	quantity    INTEGER NOT NULL,
-	completion  INTEGER NOT NULL
-);
-CREATE INDEX IF NOT EXISTS idx_crafts_guild ON crafts(guild_id);
-CREATE INDEX IF NOT EXISTS idx_crafts_completion ON crafts(completion);
-`
-
-func init() { registerMigration(craftSchema) }
-
 // Add inserts a new craft and returns it with its assigned ID.
 func (r *Repo) Add(ctx context.Context, c craft.Craft) (craft.Craft, error) {
 	res, err := r.db.ExecContext(ctx,

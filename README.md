@@ -152,8 +152,10 @@ The code is layered so storage and Discord concerns stay decoupled:
 
 - `internal/craft` — domain model `Craft` and the storage-agnostic `Repository`
   interface. Nothing here imports Discord or SQLite.
-- `internal/storage/sqlite` — `Repository` implementation over SQLite
-  (`modernc.org/sqlite`, pure Go / no CGO). Swappable for another backend.
+- `internal/storage/sqlite` — `Repository` implementations over SQLite
+  (`modernc.org/sqlite`, pure Go / no CGO). `sqlite.go` owns only the shared
+  connection (open, migrate, close); each feature's queries live in its own file
+  (`craft.go`, `request.go`). Swappable for another backend.
 - `internal/bot` — slash commands and the completion scheduler. Depends only on
   `craft.Repository`, never on the concrete storage type.
 - `internal/config` — environment configuration.
@@ -167,3 +169,23 @@ The code is layered so storage and Discord concerns stay decoupled:
 2. Pass an instance to `bot.NewRegistry(...)` in `main.go`.
 
 That's it — registration and interaction dispatch are handled by the registry.
+
+### Database migrations
+
+Schema changes are versioned [goose](https://github.com/pressly/goose) migrations
+under `internal/storage/sqlite/migrations/`, embedded via `go:embed` and applied
+automatically on `Open` (tracked in the `goose_db_version` table).
+
+To add one, create the next numbered file, e.g.
+`internal/storage/sqlite/migrations/0002_add_xxx.sql`:
+
+```sql
+-- +goose Up
+ALTER TABLE crafts ADD COLUMN note TEXT;
+
+-- +goose Down
+ALTER TABLE crafts DROP COLUMN note;
+```
+
+It runs on the next startup. Use strict DDL (the `0001` baseline only uses
+`IF NOT EXISTS` to stay safe on pre-migration databases).
