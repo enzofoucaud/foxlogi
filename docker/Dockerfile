@@ -2,7 +2,7 @@
 # Build context is the project root (see docker/docker-compose.yml).
 
 # --- build stage: compile a static, CGO-free binary ---
-FROM golang:1.25-alpine AS build
+FROM golang:1.26-alpine AS build
 ENV CGO_ENABLED=0 GOTOOLCHAIN=local
 WORKDIR /src
 

@@ -6,7 +6,7 @@ notification in-channel when a craft is ready — then removes it automatically.
 
 ## Requirements
 
-- Go 1.25+ (required by the `modernc.org/sqlite` driver)
+- Go 1.26+ (required by the `modernc.org/sqlite` driver)
 - A Discord bot application (see **Discord setup** below)
 
 ## Discord setup
@@ -22,11 +22,11 @@ notification in-channel when a craft is ready — then removes it automatically.
 
 The bot needs just enough to post craft notifications and embeds:
 
-| Permission       | Why                                                     |
-|------------------|---------------------------------------------------------|
-| View Channels    | See the channels where crafts are registered            |
-| Send Messages    | Post the "ready" notification                            |
-| Embed Links      | Render the `/craft list` embed                           |
+| Permission    | Why                                          |
+| ------------- | -------------------------------------------- |
+| View Channels | See the channels where crafts are registered |
+| Send Messages | Post the "ready" notification                |
+| Embed Links   | Render the `/craft list` embed               |
 
 These three add up to the permissions integer **`19456`**. Slash commands
 themselves are granted by the `applications.commands` OAuth2 scope, not a
@@ -56,10 +56,10 @@ seconds of the bot joining (no need to wait for global propagation).
 
 ## Configuration
 
-| Variable         | Required | Default      | Description                                            |
-|------------------|----------|--------------|--------------------------------------------------------|
-| `DISCORD_TOKEN`  | yes      | —            | Discord bot token                                      |
-| `CRAFT_DB_PATH`  | no       | `foxlogi.db` | Path to the SQLite database file                       |
+| Variable         | Required | Default      | Description                                             |
+| ---------------- | -------- | ------------ | ------------------------------------------------------- |
+| `DISCORD_TOKEN`  | yes      | —            | Discord bot token                                       |
+| `CRAFT_DB_PATH`  | no       | `foxlogi.db` | Path to the SQLite database file                        |
 | `SOON_THRESHOLD` | no       | `10m`        | Crafts within this window are flagged `⏳ soon` in lists |
 
 ## Run
@@ -118,16 +118,16 @@ and registers commands per guild on startup.
 
 Run `make help` to list all targets:
 
-| Target           | Description                              |
-|------------------|------------------------------------------|
-| `make run`       | Run the bot locally (reads `.env`)       |
-| `make build`     | Build the binary                         |
-| `make test`      | Run all tests                            |
-| `make vet`       | Run `go vet`                             |
-| `make fmt`       | Format the code                          |
-| `make tidy`      | Tidy `go.mod` / `go.sum`                 |
-| `make clean`     | Remove build artifacts and local `*.db`  |
-| `make docker-*`  | Build / up / down / restart / logs       |
+| Target          | Description                             |
+| --------------- | --------------------------------------- |
+| `make run`      | Run the bot locally (reads `.env`)      |
+| `make build`    | Build the binary                        |
+| `make test`     | Run all tests                           |
+| `make vet`      | Run `go vet`                            |
+| `make fmt`      | Format the code                         |
+| `make tidy`     | Tidy `go.mod` / `go.sum`                |
+| `make clean`    | Remove build artifacts and local `*.db` |
+| `make docker-*` | Build / up / down / restart / logs      |
 
 ## Commands
 
