@@ -137,6 +137,13 @@ func (c *CraftCommand) handleAdd(s *discordgo.Session, i *discordgo.InteractionC
 
 	replyEphemeral(s, i, fmt.Sprintf("✅ Tracking **%d× %s** (#%d) — ready <t:%d:R> (<t:%d:t>).",
 		stored.Quantity, stored.Item, stored.ID, completion.Unix(), completion.Unix()))
+
+	// Public announcement (no ping) so the server can coordinate logistics.
+	if _, err := s.ChannelMessageSend(i.ChannelID, fmt.Sprintf(
+		"🔨 **%s** is crafting **%d× %s** — ready <t:%d:R>.",
+		interactionUserName(i), stored.Quantity, stored.Item, completion.Unix())); err != nil {
+		log.Printf("announce craft: %v", err)
+	}
 }
 
 func (c *CraftCommand) handleList(s *discordgo.Session, i *discordgo.InteractionCreate) {

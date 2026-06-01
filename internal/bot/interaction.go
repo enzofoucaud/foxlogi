@@ -23,6 +23,23 @@ func optionMap(opts []*discordgo.ApplicationCommandInteractionDataOption) map[st
 	return m
 }
 
+// interactionUserName returns a display name (no ping) for the invoking user,
+// preferring the guild nickname, then the username.
+func interactionUserName(i *discordgo.InteractionCreate) string {
+	if i.Member != nil {
+		if i.Member.Nick != "" {
+			return i.Member.Nick
+		}
+		if i.Member.User != nil {
+			return i.Member.User.Username
+		}
+	}
+	if i.User != nil {
+		return i.User.Username
+	}
+	return "Someone"
+}
+
 // interactionUserID returns the invoking user's ID for both guild and DM interactions.
 func interactionUserID(i *discordgo.InteractionCreate) string {
 	if i.Member != nil && i.Member.User != nil {

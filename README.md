@@ -134,6 +134,8 @@ Run `make help` to list all targets:
 ### Craft tracking — `/craft`
 
 - `/craft add item:<name> duration:<30m|1h30m> [quantity:<n>]` — register a craft.
+  Posts a public announcement in the channel (no ping) so the server can
+  coordinate, plus a private confirmation to you.
 - `/craft list` — list active crafts with remaining time.
 
 When a craft reaches its completion time the bot pings the player in the channel
