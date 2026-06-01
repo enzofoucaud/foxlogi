@@ -160,6 +160,21 @@ contribute partial quantities until it's fulfilled.
 When every line of a request is fully delivered, the bot posts a fulfilled
 notice pinging the requester and removes the request automatically.
 
+### Server configuration — `/config`
+
+Admin-only (requires the **Manage Server** permission). Lets admins choose where
+the bot posts its public messages, per server.
+
+- `/config craft-channel channel:#crafts` — route craft announcements and ready
+  pings to a specific channel.
+- `/config request-channel channel:#requests` — route request pings to a specific channel.
+- `/config show` — show the current configuration.
+
+When a channel is set, the matching messages go there instead of the channel the
+command was run in; if the bot can't post there, it falls back to the origin
+channel. With nothing configured, behaviour is unchanged (messages post in the
+command channel).
+
 ## Development
 
 ```sh
@@ -176,14 +191,17 @@ The code is layered so storage and Discord concerns stay decoupled:
   interface (craft tracking). Nothing here imports Discord or SQLite.
 - `internal/request` — domain models `Request` / `RequestItem` and their
   `Repository` interface (logistics request board). Storage- and Discord-agnostic.
-- `internal/storage/sqlite` — implementations of both `Repository` interfaces over
-  SQLite (`modernc.org/sqlite`, pure Go / no CGO), sharing one connection.
+- `internal/guildconfig` — `Settings` and its `Repository` interface (per-guild
+  config: where craft/request messages are posted). Storage- and Discord-agnostic.
+- `internal/storage/sqlite` — implementations of all three `Repository` interfaces
+  over SQLite (`modernc.org/sqlite`, pure Go / no CGO), sharing one connection.
   `sqlite.go` owns only the shared connection (open, migrate, close); each
-  feature's queries live in its own file (`craft.go`, `request.go`). Swappable
-  for another backend.
+  feature's queries live in its own file (`craft.go`, `request.go`, `settings.go`).
+  Swappable for another backend.
 - `internal/bot` — slash commands (the `Command` registry) and the craft
   completion scheduler. Depends only on the `craft.Repository` /
-  `request.Repository` interfaces, never on the concrete storage type.
+  `request.Repository` / `guildconfig.Repository` interfaces, never on the
+  concrete storage type.
 - `internal/config` — environment configuration (Viper).
 - `main.go` — the only place that constructs the concrete repository and injects
   it into the commands and scheduler.

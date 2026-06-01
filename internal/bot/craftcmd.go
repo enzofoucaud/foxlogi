@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"foxlogi/internal/craft"
+	"foxlogi/internal/guildconfig"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -18,12 +19,14 @@ const maxCraftDuration = 30 * 24 * time.Hour
 // CraftCommand implements the /craft slash command (add and list subcommands).
 type CraftCommand struct {
 	repo          craft.Repository
+	settings      guildconfig.Repository
 	soonThreshold time.Duration
 }
 
-// NewCraftCommand creates the /craft command backed by repo.
-func NewCraftCommand(repo craft.Repository, soonThreshold time.Duration) *CraftCommand {
-	return &CraftCommand{repo: repo, soonThreshold: soonThreshold}
+// NewCraftCommand creates the /craft command backed by repo, routing public
+// announcements through the guild's configured craft channel.
+func NewCraftCommand(repo craft.Repository, settings guildconfig.Repository, soonThreshold time.Duration) *CraftCommand {
+	return &CraftCommand{repo: repo, settings: settings, soonThreshold: soonThreshold}
 }
 
 // Definition describes the /craft command and its subcommands.
@@ -138,12 +141,16 @@ func (c *CraftCommand) handleAdd(s *discordgo.Session, i *discordgo.InteractionC
 	replyEphemeral(s, i, fmt.Sprintf("✅ Tracking **%d× %s** (#%d) — ready <t:%d:R> (<t:%d:t>).",
 		stored.Quantity, stored.Item, stored.ID, completion.Unix(), completion.Unix()))
 
-	// Public announcement (no ping) so the server can coordinate logistics.
-	if _, err := s.ChannelMessageSend(i.ChannelID, fmt.Sprintf(
-		"🔨 **%s** is crafting **%d× %s** — ready <t:%d:R>.",
-		interactionUserName(i), stored.Quantity, stored.Item, completion.Unix())); err != nil {
-		log.Printf("announce craft: %v", err)
-	}
+	// Public announcement (no ping) so the server can coordinate logistics,
+	// routed to the configured craft channel when set (else the command channel).
+	// This runs after the reply, so it uses its own context, not the ack window.
+	announce := fmt.Sprintf("🔨 **%s** is crafting **%d× %s** — ready <t:%d:R>.",
+		interactionUserName(i), stored.Quantity, stored.Item, completion.Unix())
+	routeCtx, routeCancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer routeCancel()
+	target := resolveChannel(routeCtx, c.settings, i.GuildID, i.ChannelID,
+		func(set guildconfig.Settings) string { return set.CraftChannelID })
+	sendWithFallback(s, target, i.ChannelID, announce)
 }
 
 func (c *CraftCommand) handleList(s *discordgo.Session, i *discordgo.InteractionCreate) {

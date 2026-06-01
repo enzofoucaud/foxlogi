@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"foxlogi/internal/guildconfig"
 	"foxlogi/internal/request"
 
 	"github.com/bwmarrin/discordgo"
@@ -17,12 +18,14 @@ const deadlineLayout = "2006-01-02"
 // RequestCommand implements the /request slash command (new, additem, list,
 // fill, cancel subcommands) for the logistics request board.
 type RequestCommand struct {
-	repo request.Repository
+	repo     request.Repository
+	settings guildconfig.Repository
 }
 
-// NewRequestCommand creates the /request command backed by repo.
-func NewRequestCommand(repo request.Repository) *RequestCommand {
-	return &RequestCommand{repo: repo}
+// NewRequestCommand creates the /request command backed by repo, routing public
+// pings through the guild's configured request channel.
+func NewRequestCommand(repo request.Repository, settings guildconfig.Repository) *RequestCommand {
+	return &RequestCommand{repo: repo, settings: settings}
 }
 
 // Definition describes the /request command and its subcommands.
@@ -300,14 +303,14 @@ func (c *RequestCommand) handleFill(s *discordgo.Session, i *discordgo.Interacti
 		notice = fmt.Sprintf("📦 <@%s> <@%s> added **%d %s** to request #%d — %d/%d.",
 			req.UserID, userID, amount, line.Item, id, line.Delivered, line.Quantity)
 	}
-	if _, err := s.ChannelMessageSend(req.ChannelID, notice); err != nil {
-		log.Printf("notify contribution: %v", err)
-	}
-
-	// Completion runs after the reply; give it its own budget rather than
-	// sharing the ack-window context.
+	// Routing + completion run after the reply; give them their own budget
+	// rather than sharing the ack-window context.
 	doneCtx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
+
+	target := resolveChannel(doneCtx, c.settings, req.GuildID, req.ChannelID,
+		func(set guildconfig.Settings) string { return set.RequestChannelID })
+	sendWithFallback(s, target, req.ChannelID, notice)
 
 	fulfilled, err := c.repo.IsFulfilled(doneCtx, req.ID)
 	if err != nil {
@@ -325,11 +328,9 @@ func (c *RequestCommand) handleFill(s *discordgo.Session, i *discordgo.Interacti
 		return
 	}
 	if deleted {
-		if _, err := s.ChannelMessageSend(req.ChannelID, fmt.Sprintf(
+		sendWithFallback(s, target, req.ChannelID, fmt.Sprintf(
 			"🎉 <@%s> your request #%d for **%s** is fully fulfilled — thanks all!",
-			req.UserID, id, req.Location)); err != nil {
-			log.Printf("notify fulfilled: %v", err)
-		}
+			req.UserID, id, req.Location))
 	}
 }
 

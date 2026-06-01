@@ -37,8 +37,9 @@ func main() {
 	// The registry is the single extension point: add a command by passing
 	// another bot.Command here.
 	registry := bot.NewRegistry(
-		bot.NewCraftCommand(repo, cfg.SoonThreshold),
-		bot.NewRequestCommand(repo),
+		bot.NewCraftCommand(repo, repo, cfg.SoonThreshold),
+		bot.NewRequestCommand(repo, repo),
+		bot.NewConfigCommand(repo),
 	)
 
 	session.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -64,7 +65,7 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	scheduler := bot.NewScheduler(repo, session, time.Minute)
+	scheduler := bot.NewScheduler(repo, repo, session, time.Minute)
 	go scheduler.Run(ctx)
 
 	log.Println("foxlogi is running. Press Ctrl+C to stop.")

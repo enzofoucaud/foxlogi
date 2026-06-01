@@ -1,8 +1,11 @@
 package bot
 
 import (
+	"context"
 	"log"
 	"time"
+
+	"foxlogi/internal/guildconfig"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -13,6 +16,36 @@ const (
 	// dbTimeout keeps repository calls well inside Discord's 3s interaction-ack window.
 	dbTimeout = 3 * time.Second
 )
+
+// resolveChannel returns the configured channel for a guild via pick, falling
+// back to origin when the setting is unset or the lookup fails.
+func resolveChannel(ctx context.Context, settings guildconfig.Repository, guildID, origin string, pick func(guildconfig.Settings) string) string {
+	set, err := settings.Get(ctx, guildID)
+	if err != nil {
+		log.Printf("guild settings lookup: %v", err)
+		return origin
+	}
+	if ch := pick(set); ch != "" {
+		return ch
+	}
+	return origin
+}
+
+// sendWithFallback posts msg to the primary channel; if that fails and the
+// origin channel differs, it retries there. Both failures are logged.
+func sendWithFallback(s *discordgo.Session, primary, origin, msg string) {
+	if _, err := s.ChannelMessageSend(primary, msg); err == nil {
+		return
+	} else {
+		log.Printf("send to channel %s failed: %v", primary, err)
+	}
+	if origin == "" || origin == primary {
+		return
+	}
+	if _, err := s.ChannelMessageSend(origin, msg); err != nil {
+		log.Printf("fallback send to channel %s failed: %v", origin, err)
+	}
+}
 
 // optionMap indexes interaction options by name for easy lookup.
 func optionMap(opts []*discordgo.ApplicationCommandInteractionDataOption) map[string]*discordgo.ApplicationCommandInteractionDataOption {
