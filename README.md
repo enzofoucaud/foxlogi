@@ -157,8 +157,11 @@ contribute partial quantities until it's fulfilled.
   item line (surplus accepted). The requester is pinged on every contribution.
 - `/request cancel id:<n>` — cancel your own request (requester only).
 
-When every line of a request is fully delivered, the bot posts a fulfilled
-notice pinging the requester and removes the request automatically.
+The full lifecycle is mirrored as public activity messages (no ping) so the
+channel acts as a logistics log: opening a request, adding an item, each
+contribution, fulfilment, and cancellation. When every line is fully delivered,
+the bot posts a fulfilled notice pinging the requester and removes the request
+automatically.
 
 ### Server configuration — `/config`
 

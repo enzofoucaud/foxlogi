@@ -176,6 +176,13 @@ func (c *RequestCommand) handleNew(s *discordgo.Session, i *discordgo.Interactio
 
 	replyEphemeral(s, i, fmt.Sprintf("✅ Request **#%d** opened for **%s** (%s). Add items with `/request additem id:%d …`.",
 		req.ID, location, priority, req.ID))
+
+	announce := fmt.Sprintf("📋 **%s** opened request #%d — deliver to **%s** (priority: %s).",
+		interactionUserName(i), req.ID, location, priority)
+	if deadline != nil {
+		announce += fmt.Sprintf(" Due <t:%d:D>.", deadline.Unix())
+	}
+	c.announce(s, i.GuildID, i.ChannelID, announce)
 }
 
 func (c *RequestCommand) handleAddItem(s *discordgo.Session, i *discordgo.InteractionCreate, sub *discordgo.ApplicationCommandInteractionDataOption) {
@@ -208,12 +215,26 @@ func (c *RequestCommand) handleAddItem(s *discordgo.Session, i *discordgo.Intera
 		return
 	}
 
-	if _, err := c.repo.AddItem(ctx, req.ID, item, quantity); err != nil {
+	line, err := c.repo.AddItem(ctx, req.ID, item, quantity)
+	if err != nil {
 		log.Printf("add item: %v", err)
 		replyEphemeral(s, i, "❌ Failed to add the item.")
 		return
 	}
 	replyEphemeral(s, i, fmt.Sprintf("✅ Added **%d× %s** to request #%d.", quantity, item, req.ID))
+
+	c.announce(s, i.GuildID, i.ChannelID,
+		fmt.Sprintf("➕ Request #%d needs **%d× %s**.", req.ID, line.Quantity, line.Item))
+}
+
+// announce posts a no-ping activity message to the guild's configured request
+// channel, falling back to the origin channel when unset or on send error.
+func (c *RequestCommand) announce(s *discordgo.Session, guildID, origin, msg string) {
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+	target := resolveChannel(ctx, c.settings, guildID, origin,
+		func(set guildconfig.Settings) string { return set.RequestChannelID })
+	sendWithFallback(s, target, origin, msg)
 }
 
 func (c *RequestCommand) handleList(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -363,6 +384,8 @@ func (c *RequestCommand) handleCancel(s *discordgo.Session, i *discordgo.Interac
 		return
 	}
 	replyEphemeral(s, i, fmt.Sprintf("🗑️ Request #%d cancelled.", id))
+
+	c.announce(s, req.GuildID, req.ChannelID, fmt.Sprintf("🗑️ Request #%d cancelled.", id))
 }
 
 // formatRequest renders one request block for the list embed.
