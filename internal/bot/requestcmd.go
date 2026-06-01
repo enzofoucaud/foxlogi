@@ -349,9 +349,11 @@ func (c *RequestCommand) handleFill(s *discordgo.Session, i *discordgo.Interacti
 		return
 	}
 	if deleted {
+		// No ping here: the requester was already pinged by the final
+		// contribution message just above.
 		sendWithFallback(s, target, req.ChannelID, fmt.Sprintf(
-			"🎉 <@%s> your request #%d for **%s** is fully fulfilled — thanks all!",
-			req.UserID, id, req.Location))
+			"🎉 Request #%d for **%s** is fully fulfilled — thanks all!",
+			id, req.Location))
 	}
 }
 
