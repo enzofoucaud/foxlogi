@@ -41,6 +41,8 @@ func main() {
 		bot.NewRequestCommand(repo, repo),
 		bot.NewConfigCommand(repo),
 	)
+	// /help lists the registry's own commands, so it is added afterwards.
+	registry.Add(bot.NewHelpCommand(registry))
 
 	session.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		registry.Dispatch(s, i)

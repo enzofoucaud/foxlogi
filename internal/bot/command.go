@@ -31,6 +31,12 @@ func NewRegistry(cmds ...Command) *Registry {
 	return r
 }
 
+// Add registers an additional command after construction (used for commands
+// that need a reference to the registry itself, e.g. /help).
+func (r *Registry) Add(cmd Command) {
+	r.commands[cmd.Definition().Name] = cmd
+}
+
 // Register publishes every command's definition to Discord for the given guild.
 // An empty guildID registers the commands globally.
 func (r *Registry) Register(s *discordgo.Session, guildID string) error {

@@ -131,6 +131,9 @@ Run `make help` to list all targets:
 
 ## Commands
 
+`/help` lists every command and subcommand (ephemeral, generated from the
+registered commands so it never drifts).
+
 ### Craft tracking — `/craft`
 
 - `/craft add item:<name> duration:<30m|1h30m> [quantity:<n>]` — register a craft.
