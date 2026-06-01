@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 	"time"
 
@@ -72,7 +73,7 @@ func (c *RequestCommand) Definition() *discordgo.ApplicationCommand {
 				Description: "Add an item line to your request",
 				Type:        discordgo.ApplicationCommandOptionSubCommand,
 				Options: []*discordgo.ApplicationCommandOption{
-					{Name: "id", Description: "Request id", Type: discordgo.ApplicationCommandOptionInteger, Required: true, MinValue: &minQty},
+					{Name: "id", Description: "Request id", Type: discordgo.ApplicationCommandOptionInteger, Required: true, MinValue: &minQty, Autocomplete: true},
 					{Name: "item", Description: "Item name", Type: discordgo.ApplicationCommandOptionString, Required: true, MaxLength: 100},
 					{Name: "quantity", Description: "How many", Type: discordgo.ApplicationCommandOptionInteger, Required: true, MinValue: &minQty, MaxValue: 1000000},
 				},
@@ -87,8 +88,8 @@ func (c *RequestCommand) Definition() *discordgo.ApplicationCommand {
 				Description: "Contribute a quantity to a request's item",
 				Type:        discordgo.ApplicationCommandOptionSubCommand,
 				Options: []*discordgo.ApplicationCommandOption{
-					{Name: "id", Description: "Request id", Type: discordgo.ApplicationCommandOptionInteger, Required: true, MinValue: &minQty},
-					{Name: "item", Description: "Item name", Type: discordgo.ApplicationCommandOptionString, Required: true, MaxLength: 100},
+					{Name: "id", Description: "Request id", Type: discordgo.ApplicationCommandOptionInteger, Required: true, MinValue: &minQty, Autocomplete: true},
+					{Name: "item", Description: "Item name", Type: discordgo.ApplicationCommandOptionString, Required: true, MaxLength: 100, Autocomplete: true},
 					{Name: "quantity", Description: "How many you delivered", Type: discordgo.ApplicationCommandOptionInteger, Required: true, MinValue: &minQty, MaxValue: 1000000},
 				},
 			},
@@ -97,7 +98,7 @@ func (c *RequestCommand) Definition() *discordgo.ApplicationCommand {
 				Description: "Cancel your own request",
 				Type:        discordgo.ApplicationCommandOptionSubCommand,
 				Options: []*discordgo.ApplicationCommandOption{
-					{Name: "id", Description: "Request id", Type: discordgo.ApplicationCommandOptionInteger, Required: true, MinValue: &minQty},
+					{Name: "id", Description: "Request id", Type: discordgo.ApplicationCommandOptionInteger, Required: true, MinValue: &minQty, Autocomplete: true},
 				},
 			},
 		},
@@ -122,6 +123,109 @@ func (c *RequestCommand) Handle(s *discordgo.Session, i *discordgo.InteractionCr
 		c.handleFill(s, i, sub)
 	case "cancel":
 		c.handleCancel(s, i, sub)
+	}
+}
+
+// Autocomplete powers the id and item options of /request: id suggests open
+// requests, item suggests the targeted request's actual items — so neither can
+// be mistyped.
+func (c *RequestCommand) Autocomplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	data := i.ApplicationCommandData()
+	if len(data.Options) == 0 {
+		c.respondChoices(s, i, nil)
+		return
+	}
+	sub := data.Options[0]
+	focused := focusedOption(sub.Options)
+	if focused == nil {
+		c.respondChoices(s, i, nil)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+
+	switch focused.Name {
+	case "id":
+		c.autocompleteID(ctx, s, i, sub.Name, optionString(focused))
+	case "item":
+		if sub.Name == "fill" {
+			c.autocompleteItem(ctx, s, i, optionMap(sub.Options), optionString(focused))
+		} else {
+			c.respondChoices(s, i, nil)
+		}
+	default:
+		c.respondChoices(s, i, nil)
+	}
+}
+
+// autocompleteID suggests open requests by id. For owner-only subcommands
+// (additem, cancel) it lists only the invoking user's requests.
+func (c *RequestCommand) autocompleteID(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate, subName, prefix string) {
+	reqs, err := c.repo.ListOpenByGuild(ctx, i.GuildID)
+	if err != nil {
+		c.respondChoices(s, i, nil)
+		return
+	}
+	ownerOnly := subName == "additem" || subName == "cancel"
+	userID := interactionUserID(i)
+
+	var choices []*discordgo.ApplicationCommandOptionChoice
+	for _, r := range reqs {
+		if ownerOnly && r.UserID != userID {
+			continue
+		}
+		idStr := strconv.FormatInt(r.ID, 10)
+		if prefix != "" && !strings.HasPrefix(idStr, prefix) {
+			continue
+		}
+		choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
+			Name:  clampChoiceName(fmt.Sprintf("#%d — %s (%s)", r.ID, r.Location, strings.ToUpper(r.Priority))),
+			Value: r.ID,
+		})
+		if len(choices) == 25 {
+			break
+		}
+	}
+	c.respondChoices(s, i, choices)
+}
+
+// autocompleteItem suggests the targeted request's items for /request fill.
+func (c *RequestCommand) autocompleteItem(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate, opts map[string]*discordgo.ApplicationCommandInteractionDataOption, prefix string) {
+	idOpt, ok := opts["id"]
+	if !ok {
+		c.respondChoices(s, i, nil)
+		return
+	}
+	req, found, err := c.repo.GetRequest(ctx, i.GuildID, idOpt.IntValue())
+	if err != nil || !found {
+		c.respondChoices(s, i, nil)
+		return
+	}
+
+	prefix = strings.ToLower(strings.TrimSpace(prefix))
+	var choices []*discordgo.ApplicationCommandOptionChoice
+	for _, it := range req.Items {
+		if prefix != "" && !strings.Contains(strings.ToLower(it.Item), prefix) {
+			continue
+		}
+		choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
+			Name:  clampChoiceName(fmt.Sprintf("%s (%d/%d)", it.Item, it.Delivered, it.Quantity)),
+			Value: it.Item,
+		})
+		if len(choices) == 25 {
+			break
+		}
+	}
+	c.respondChoices(s, i, choices)
+}
+
+func (c *RequestCommand) respondChoices(s *discordgo.Session, i *discordgo.InteractionCreate, choices []*discordgo.ApplicationCommandOptionChoice) {
+	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionApplicationCommandAutocompleteResult,
+		Data: &discordgo.InteractionResponseData{Choices: choices},
+	}); err != nil {
+		log.Printf("autocomplete respond: %v", err)
 	}
 }
 

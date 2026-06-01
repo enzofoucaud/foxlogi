@@ -3,6 +3,7 @@ package bot
 import (
 	"context"
 	"log"
+	"strings"
 	"time"
 
 	"foxlogi/internal/guildconfig"
@@ -45,6 +46,37 @@ func sendWithFallback(s *discordgo.Session, primary, origin, msg string) {
 	if _, err := s.ChannelMessageSend(origin, msg); err != nil {
 		log.Printf("fallback send to channel %s failed: %v", origin, err)
 	}
+}
+
+// focusedOption returns the option the user is currently typing during an
+// autocomplete interaction, or nil.
+func focusedOption(opts []*discordgo.ApplicationCommandInteractionDataOption) *discordgo.ApplicationCommandInteractionDataOption {
+	for _, o := range opts {
+		if o.Focused {
+			return o
+		}
+	}
+	return nil
+}
+
+// optionString reads an option's value as a trimmed string without panicking
+// when Discord sends a non-string (e.g. a partial integer during autocomplete).
+func optionString(o *discordgo.ApplicationCommandInteractionDataOption) string {
+	if s, ok := o.Value.(string); ok {
+		return strings.TrimSpace(s)
+	}
+	return ""
+}
+
+// clampChoiceName keeps an autocomplete choice name within Discord's 100-char
+// limit, counting runes so multibyte names aren't cut into invalid UTF-8.
+func clampChoiceName(name string) string {
+	const max = 100
+	r := []rune(name)
+	if len(r) <= max {
+		return name
+	}
+	return string(r[:max])
 }
 
 // optionMap indexes interaction options by name for easy lookup.

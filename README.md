@@ -160,6 +160,10 @@ contribute partial quantities until it's fulfilled.
   item line (surplus accepted). The requester is pinged on every contribution.
 - `/request cancel id:<n>` — cancel your own request (requester only).
 
+The `id` field autocompletes from open requests (only your own for `additem`
+and `cancel`), and `fill`'s `item` field autocompletes from the targeted
+request's actual items — so neither can be mistyped.
+
 The full lifecycle is mirrored as public activity messages (no ping) so the
 channel acts as a logistics log: opening a request, adding an item, each
 contribution, fulfilment, and cancellation. When every line is fully delivered,

@@ -17,6 +17,12 @@ type Command interface {
 	Handle(s *discordgo.Session, i *discordgo.InteractionCreate)
 }
 
+// Autocompleter is an optional interface a Command can implement to serve
+// option autocomplete suggestions.
+type Autocompleter interface {
+	Autocomplete(s *discordgo.Session, i *discordgo.InteractionCreate)
+}
+
 // Registry holds the bot's commands and dispatches interactions to them.
 type Registry struct {
 	commands map[string]Command
@@ -48,16 +54,25 @@ func (r *Registry) Register(s *discordgo.Session, guildID string) error {
 	return nil
 }
 
-// Dispatch routes an application-command interaction to its handler.
+// Dispatch routes a command interaction (or its autocomplete) to the handler.
 func (r *Registry) Dispatch(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	if i.Type != discordgo.InteractionApplicationCommand {
-		return
+	switch i.Type {
+	case discordgo.InteractionApplicationCommand:
+		name := i.ApplicationCommandData().Name
+		cmd, ok := r.commands[name]
+		if !ok {
+			log.Printf("no handler for command %q", name)
+			return
+		}
+		cmd.Handle(s, i)
+	case discordgo.InteractionApplicationCommandAutocomplete:
+		name := i.ApplicationCommandData().Name
+		cmd, ok := r.commands[name]
+		if !ok {
+			return
+		}
+		if ac, ok := cmd.(Autocompleter); ok {
+			ac.Autocomplete(s, i)
+		}
 	}
-	name := i.ApplicationCommandData().Name
-	cmd, ok := r.commands[name]
-	if !ok {
-		log.Printf("no handler for command %q", name)
-		return
-	}
-	cmd.Handle(s, i)
 }
