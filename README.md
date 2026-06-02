@@ -116,6 +116,22 @@ docker compose -f docker/docker-compose.yml up -d --build
 The Compose file reads the project-root `.env`, sets `CRAFT_DB_PATH=/data/foxlogi.db`,
 and registers commands per guild on startup.
 
+### Production
+
+`docker/docker-compose.prod.yml` reads `../.env.prod` and adds restart, log
+rotation, resource limits and a hardened runtime. To deploy an update on the
+host, pull the latest source and **rebuild** — `make prod-up` reuses the
+existing image and does NOT rebuild:
+
+```sh
+git pull
+make prod-deploy   # docker compose -f docker/docker-compose.prod.yml up -d --build
+make prod-logs
+```
+
+`make prod-up` (no rebuild) is only for restarting the current image; use
+`make prod-deploy` after any code change.
+
 ## Makefile
 
 Run `make help` to list all targets:

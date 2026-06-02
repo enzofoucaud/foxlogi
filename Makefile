@@ -5,7 +5,7 @@ COMPOSE_PROD := docker compose -f docker/docker-compose.prod.yml
 
 .PHONY: help run build test vet fmt tidy clean \
         docker-build docker-up docker-down docker-logs docker-restart \
-        prod-up prod-down prod-logs prod-pull
+        prod-up prod-down prod-logs prod-pull prod-build prod-deploy
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -53,8 +53,14 @@ docker-logs: ## Follow the container logs
 
 ## --- Production ---
 
-prod-up: ## Start the bot in production (reads ../.env.prod)
+prod-up: ## Start the bot in production (uses the existing image; does NOT rebuild)
 	$(COMPOSE_PROD) up -d
+
+prod-build: ## Rebuild the production image from the current source
+	$(COMPOSE_PROD) build
+
+prod-deploy: ## Rebuild from source and (re)start — use this for on-box deploys
+	$(COMPOSE_PROD) up -d --build
 
 prod-down: ## Stop and remove the production container
 	$(COMPOSE_PROD) down
