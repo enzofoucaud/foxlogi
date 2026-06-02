@@ -1,9 +1,11 @@
 BINARY  := foxlogi
 IMAGE   := foxlogi:latest
 COMPOSE := docker compose -f docker/docker-compose.yml
+COMPOSE_PROD := docker compose -f docker/docker-compose.prod.yml
 
 .PHONY: help run build test vet fmt tidy clean \
-        docker-build docker-up docker-down docker-logs docker-restart
+        docker-build docker-up docker-down docker-logs docker-restart \
+        prod-up prod-down prod-logs prod-pull
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -48,3 +50,17 @@ docker-restart: ## Rebuild and restart the bot
 
 docker-logs: ## Follow the container logs
 	$(COMPOSE) logs -f
+
+## --- Production ---
+
+prod-up: ## Start the bot in production (reads ../.env.prod)
+	$(COMPOSE_PROD) up -d
+
+prod-down: ## Stop and remove the production container
+	$(COMPOSE_PROD) down
+
+prod-pull: ## Pull the pinned production image (set FOXLOGI_IMAGE)
+	$(COMPOSE_PROD) pull
+
+prod-logs: ## Follow the production container logs
+	$(COMPOSE_PROD) logs -f

@@ -1,0 +1,85 @@
+name: foxlogi
+
+# Production compose for foxlogi.
+#
+# Differences from docker-compose.yml (dev):
+#   - pulls a pinned, pre-built image by default instead of building from source
+#     (set FOXLOGI_IMAGE to a registry tag; falls back to a local build);
+#   - restart: always, so the bot comes back after a host reboot;
+#   - log rotation, so the SQLite host never fills up with container logs;
+#   - resource limits, so a runaway process can't starve the host;
+#   - a hardened runtime (read-only root fs, dropped capabilities,
+#     no-new-privileges) since the bot only needs outbound TLS + its data volume.
+#
+# Usage:
+#   export DISCORD_TOKEN=...                         # or put it in ../.env.prod
+#   docker compose -f docker/docker-compose.prod.yml up -d
+#
+# To deploy a registry image instead of building locally:
+#   export FOXLOGI_IMAGE=ghcr.io/<you>/foxlogi:1.2.3
+#   docker compose -f docker/docker-compose.prod.yml pull
+#   docker compose -f docker/docker-compose.prod.yml up -d
+
+services:
+  foxlogi:
+    image: ${FOXLOGI_IMAGE:-foxlogi:latest}
+    # `build` is kept as a fallback for hosts that build on-box. When you deploy
+    # from a registry (recommended), `pull` ignores this and uses the image above.
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: foxlogi
+    restart: always
+
+    # Secrets and overrides live outside the image. Keep ../.env.prod off git
+    # (it matches the .env ignore rule if you name it .env). DISCORD_TOKEN is
+    # required; CRAFT_DB_PATH already defaults to /data/foxlogi.db in the image.
+    env_file:
+      - path: ../.env.prod
+        required: false
+    environment:
+      # A real env var wins over the .env file inside the container, letting the
+      # host's shell / secrets manager inject the token without a file on disk.
+      DISCORD_TOKEN: ${DISCORD_TOKEN:-}
+      SOON_THRESHOLD: ${SOON_THRESHOLD:-10m}
+
+    volumes:
+      # Persists the SQLite database across restarts, redeploys and image bumps.
+      - foxlogi-data:/data
+
+    # The bot is a Discord process with no HTTP surface, so health is "is the
+    # process still alive". The Alpine runtime ships busybox pgrep.
+    healthcheck:
+      test: ["CMD", "pgrep", "-f", "/app/foxlogi"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+    # --- hardening ---
+    read_only: true              # root fs is immutable; only /data (volume) is writable
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+    # --- resource limits ---
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 256M
+        reservations:
+          memory: 64M
+
+    # --- log rotation ---
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+volumes:
+  foxlogi-data:
