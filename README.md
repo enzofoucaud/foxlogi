@@ -222,12 +222,15 @@ The code is layered so storage and Discord concerns stay decoupled:
   config: message channels + building-code roles). Storage- and Discord-agnostic.
 - `internal/building` — `Building` and its `Repository` interface (role-gated
   access codes). Storage- and Discord-agnostic.
-- `internal/storage/sqlite` — implementations of all four `Repository` interfaces
-  over SQLite (`modernc.org/sqlite`, pure Go / no CGO), sharing one connection.
-  Domain method names are distinct (e.g. `AddBuilding`) so one type satisfies
-  every interface. `sqlite.go` owns only the shared connection (open, migrate,
-  close); each feature's queries live in its own file (`craft.go`, `request.go`,
-  `settings.go`, `building.go`).
+- `internal/events` — an append-only `Recorder` interface; every mutating action
+  and code view is logged (capture-only, for future stats). No password is ever
+  recorded.
+- `internal/storage/sqlite` — implementations of all five `Repository`/`Recorder`
+  interfaces over SQLite (`modernc.org/sqlite`, pure Go / no CGO), sharing one
+  connection. Domain method names are distinct (e.g. `AddBuilding`, `RecordEvent`)
+  so one type satisfies every interface. `sqlite.go` owns only the shared
+  connection (open, migrate, close); each feature's queries live in its own file
+  (`craft.go`, `request.go`, `settings.go`, `building.go`, `events.go`).
   Swappable for another backend.
 - `internal/bot` — slash commands (the `Command` registry, with optional
   `Autocompleter` / `ModalSubmitter`) and the craft completion scheduler. Depends

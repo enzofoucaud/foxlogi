@@ -6,6 +6,7 @@ import (
 	"log"
 	"strings"
 
+	"foxlogi/internal/events"
 	"foxlogi/internal/guildconfig"
 
 	"github.com/bwmarrin/discordgo"
@@ -15,11 +16,12 @@ import (
 // and request messages are posted on a guild.
 type ConfigCommand struct {
 	settings guildconfig.Repository
+	recorder events.Recorder
 }
 
 // NewConfigCommand creates the /config command backed by the settings repo.
-func NewConfigCommand(settings guildconfig.Repository) *ConfigCommand {
-	return &ConfigCommand{settings: settings}
+func NewConfigCommand(settings guildconfig.Repository, recorder events.Recorder) *ConfigCommand {
+	return &ConfigCommand{settings: settings, recorder: recorder}
 }
 
 // Definition describes /config; it is gated to members with Manage Server and
@@ -95,13 +97,13 @@ func (c *ConfigCommand) Handle(s *discordgo.Session, i *discordgo.InteractionCre
 
 	switch sub.Name {
 	case "craft-channel":
-		c.setChannel(ctx, s, i, sub, c.settings.SetCraftChannel, "Craft")
+		c.setChannel(ctx, s, i, sub, c.settings.SetCraftChannel, "Craft", "config.craft_channel")
 	case "request-channel":
-		c.setChannel(ctx, s, i, sub, c.settings.SetRequestChannel, "Request")
+		c.setChannel(ctx, s, i, sub, c.settings.SetRequestChannel, "Request", "config.request_channel")
 	case "building-role-add":
-		c.setBuildingRole(ctx, s, i, sub, c.settings.AddBuildingRole, "now")
+		c.setBuildingRole(ctx, s, i, sub, c.settings.AddBuildingRole, "now", "config.building_role_add")
 	case "building-role-remove":
-		c.setBuildingRole(ctx, s, i, sub, c.settings.RemoveBuildingRole, "no longer")
+		c.setBuildingRole(ctx, s, i, sub, c.settings.RemoveBuildingRole, "no longer", "config.building_role_remove")
 	case "show":
 		c.handleShow(ctx, s, i)
 	}
@@ -114,6 +116,7 @@ func (c *ConfigCommand) setBuildingRole(
 	sub *discordgo.ApplicationCommandInteractionDataOption,
 	apply func(context.Context, string, string) error,
 	verb string,
+	eventType string,
 ) {
 	roleID := optionMap(sub.Options)["role"].RoleValue(nil, "").ID
 	if err := apply(ctx, i.GuildID, roleID); err != nil {
@@ -122,6 +125,7 @@ func (c *ConfigCommand) setBuildingRole(
 		return
 	}
 	replyEphemeral(s, i, fmt.Sprintf("✅ <@&%s> can %s view building codes.", roleID, verb))
+	logEvent(c.recorder, i.GuildID, interactionUserID(i), eventType, map[string]string{"role_id": roleID})
 }
 
 func (c *ConfigCommand) setChannel(
@@ -131,6 +135,7 @@ func (c *ConfigCommand) setChannel(
 	sub *discordgo.ApplicationCommandInteractionDataOption,
 	set func(context.Context, string, string) error,
 	label string,
+	eventType string,
 ) {
 	channelID := optionMap(sub.Options)["channel"].ChannelValue(nil).ID
 	if err := set(ctx, i.GuildID, channelID); err != nil {
@@ -139,6 +144,7 @@ func (c *ConfigCommand) setChannel(
 		return
 	}
 	replyEphemeral(s, i, fmt.Sprintf("✅ %s messages will now be posted in <#%s>.", label, channelID))
+	logEvent(c.recorder, i.GuildID, interactionUserID(i), eventType, map[string]string{"channel_id": channelID})
 }
 
 func (c *ConfigCommand) handleShow(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) {

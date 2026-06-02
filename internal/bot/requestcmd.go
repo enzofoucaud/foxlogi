@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"foxlogi/internal/events"
 	"foxlogi/internal/guildconfig"
 	"foxlogi/internal/request"
 
@@ -21,12 +22,13 @@ const deadlineLayout = "2006-01-02"
 type RequestCommand struct {
 	repo     request.Repository
 	settings guildconfig.Repository
+	recorder events.Recorder
 }
 
 // NewRequestCommand creates the /request command backed by repo, routing public
 // pings through the guild's configured request channel.
-func NewRequestCommand(repo request.Repository, settings guildconfig.Repository) *RequestCommand {
-	return &RequestCommand{repo: repo, settings: settings}
+func NewRequestCommand(repo request.Repository, settings guildconfig.Repository, recorder events.Recorder) *RequestCommand {
+	return &RequestCommand{repo: repo, settings: settings, recorder: recorder}
 }
 
 // Definition describes the /request command and its subcommands.
@@ -282,6 +284,10 @@ func (c *RequestCommand) handleNew(s *discordgo.Session, i *discordgo.Interactio
 		announce += fmt.Sprintf(" Due <t:%d:D>.", deadline.Unix())
 	}
 	c.announce(s, i.GuildID, i.ChannelID, announce)
+
+	logEvent(c.recorder, i.GuildID, userID, "request.new", map[string]string{
+		"request_id": strconv.FormatInt(req.ID, 10), "location": location, "priority": priority,
+	})
 }
 
 func (c *RequestCommand) handleAddItem(s *discordgo.Session, i *discordgo.InteractionCreate, sub *discordgo.ApplicationCommandInteractionDataOption) {
@@ -322,6 +328,10 @@ func (c *RequestCommand) handleAddItem(s *discordgo.Session, i *discordgo.Intera
 	// Ephemeral only: adding items one by one would otherwise spam the channel
 	// while a large request is being built.
 	replyEphemeral(s, i, fmt.Sprintf("✅ Added **%d× %s** to request #%d.", quantity, item, req.ID))
+
+	logEvent(c.recorder, i.GuildID, userID, "request.additem", map[string]string{
+		"request_id": strconv.FormatInt(req.ID, 10), "item": item, "quantity": strconv.Itoa(quantity),
+	})
 }
 
 // announce posts a no-ping activity message to the guild's configured request
@@ -430,6 +440,10 @@ func (c *RequestCommand) handleFill(s *discordgo.Session, i *discordgo.Interacti
 		func(set guildconfig.Settings) string { return set.RequestChannelID })
 	sendWithFallback(s, target, req.ChannelID, notice)
 
+	logEvent(c.recorder, req.GuildID, userID, "request.fill", map[string]string{
+		"request_id": strconv.FormatInt(req.ID, 10), "item": line.Item, "amount": strconv.Itoa(amount),
+	})
+
 	fulfilled, err := c.repo.IsFulfilled(doneCtx, req.ID)
 	if err != nil {
 		log.Printf("is fulfilled: %v", err)
@@ -451,6 +465,9 @@ func (c *RequestCommand) handleFill(s *discordgo.Session, i *discordgo.Interacti
 		sendWithFallback(s, target, req.ChannelID, fmt.Sprintf(
 			"🎉 Request #%d for **%s** is fully fulfilled — thanks all!",
 			id, req.Location))
+		logEvent(c.recorder, req.GuildID, userID, "request.fulfilled", map[string]string{
+			"request_id": strconv.FormatInt(req.ID, 10), "location": req.Location,
+		})
 	}
 }
 
@@ -485,6 +502,10 @@ func (c *RequestCommand) handleCancel(s *discordgo.Session, i *discordgo.Interac
 	replyEphemeral(s, i, fmt.Sprintf("🗑️ Request #%d cancelled.", id))
 
 	c.announce(s, req.GuildID, req.ChannelID, fmt.Sprintf("🗑️ Request #%d cancelled.", id))
+
+	logEvent(c.recorder, req.GuildID, userID, "request.cancel", map[string]string{
+		"request_id": strconv.FormatInt(req.ID, 10),
+	})
 }
 
 // formatRequest renders one request block for the list embed.

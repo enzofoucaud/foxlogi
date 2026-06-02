@@ -37,10 +37,10 @@ func main() {
 	// The registry is the single extension point: add a command by passing
 	// another bot.Command here.
 	registry := bot.NewRegistry(
-		bot.NewCraftCommand(repo, repo, cfg.SoonThreshold),
-		bot.NewRequestCommand(repo, repo),
-		bot.NewConfigCommand(repo),
-		bot.NewBuildingCommand(repo, repo),
+		bot.NewCraftCommand(repo, repo, repo, cfg.SoonThreshold),
+		bot.NewRequestCommand(repo, repo, repo),
+		bot.NewConfigCommand(repo, repo),
+		bot.NewBuildingCommand(repo, repo, repo),
 	)
 	// /help lists the registry's own commands, so it is added afterwards.
 	registry.Add(bot.NewHelpCommand(registry))
@@ -68,7 +68,7 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	scheduler := bot.NewScheduler(repo, repo, session, time.Minute)
+	scheduler := bot.NewScheduler(repo, repo, repo, session, time.Minute)
 	go scheduler.Run(ctx)
 
 	log.Println("foxlogi is running. Press Ctrl+C to stop.")

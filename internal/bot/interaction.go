@@ -6,10 +6,22 @@ import (
 	"strings"
 	"time"
 
+	"foxlogi/internal/events"
 	"foxlogi/internal/guildconfig"
 
 	"github.com/bwmarrin/discordgo"
 )
+
+// logEvent records an activity event best-effort: it uses its own short context
+// (not the handler's possibly-expired one), logs on error, and never affects the
+// caller. Call it only after the underlying action has succeeded.
+func logEvent(rec events.Recorder, guildID, userID, eventType string, payload map[string]string) {
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+	if err := rec.RecordEvent(ctx, guildID, userID, eventType, payload); err != nil {
+		log.Printf("record event %s: %v", eventType, err)
+	}
+}
 
 const (
 	// maxEmbedDescription leaves headroom under Discord's 4096-char embed limit.

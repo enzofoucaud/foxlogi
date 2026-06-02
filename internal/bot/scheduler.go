@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strconv"
 	"time"
 
 	"foxlogi/internal/craft"
+	"foxlogi/internal/events"
 	"foxlogi/internal/guildconfig"
 
 	"github.com/bwmarrin/discordgo"
@@ -16,14 +18,15 @@ import (
 type Scheduler struct {
 	repo     craft.Repository
 	settings guildconfig.Repository
+	recorder events.Recorder
 	session  *discordgo.Session
 	interval time.Duration
 }
 
 // NewScheduler creates a Scheduler that checks for due crafts every interval,
 // routing ready notifications through the guild's configured craft channel.
-func NewScheduler(repo craft.Repository, settings guildconfig.Repository, s *discordgo.Session, interval time.Duration) *Scheduler {
-	return &Scheduler{repo: repo, settings: settings, session: s, interval: interval}
+func NewScheduler(repo craft.Repository, settings guildconfig.Repository, recorder events.Recorder, s *discordgo.Session, interval time.Duration) *Scheduler {
+	return &Scheduler{repo: repo, settings: settings, recorder: recorder, session: s, interval: interval}
 }
 
 // Run blocks until ctx is cancelled, checking for due crafts on every tick.
@@ -51,6 +54,9 @@ func (sc *Scheduler) notifyDue(ctx context.Context) {
 		target := resolveChannel(ctx, sc.settings, c.GuildID, c.ChannelID,
 			func(set guildconfig.Settings) string { return set.CraftChannelID })
 		sendWithFallback(sc.session, target, c.ChannelID, msg)
+		logEvent(sc.recorder, c.GuildID, c.UserID, "craft.ready", map[string]string{
+			"item": c.Item, "quantity": strconv.Itoa(c.Quantity),
+		})
 		// Remove regardless of send outcome so a deleted channel or revoked
 		// permission can't trap the craft in an infinite retry loop.
 		if err := sc.repo.Delete(ctx, c.ID); err != nil {

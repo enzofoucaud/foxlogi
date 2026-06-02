@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 	"time"
 
 	"foxlogi/internal/craft"
+	"foxlogi/internal/events"
 	"foxlogi/internal/guildconfig"
 
 	"github.com/bwmarrin/discordgo"
@@ -20,13 +22,14 @@ const maxCraftDuration = 30 * 24 * time.Hour
 type CraftCommand struct {
 	repo          craft.Repository
 	settings      guildconfig.Repository
+	recorder      events.Recorder
 	soonThreshold time.Duration
 }
 
 // NewCraftCommand creates the /craft command backed by repo, routing public
 // announcements through the guild's configured craft channel.
-func NewCraftCommand(repo craft.Repository, settings guildconfig.Repository, soonThreshold time.Duration) *CraftCommand {
-	return &CraftCommand{repo: repo, settings: settings, soonThreshold: soonThreshold}
+func NewCraftCommand(repo craft.Repository, settings guildconfig.Repository, recorder events.Recorder, soonThreshold time.Duration) *CraftCommand {
+	return &CraftCommand{repo: repo, settings: settings, recorder: recorder, soonThreshold: soonThreshold}
 }
 
 // Definition describes the /craft command and its subcommands.
@@ -151,6 +154,10 @@ func (c *CraftCommand) handleAdd(s *discordgo.Session, i *discordgo.InteractionC
 	target := resolveChannel(routeCtx, c.settings, i.GuildID, i.ChannelID,
 		func(set guildconfig.Settings) string { return set.CraftChannelID })
 	sendWithFallback(s, target, i.ChannelID, announce)
+
+	logEvent(c.recorder, i.GuildID, userID, "craft.add", map[string]string{
+		"item": stored.Item, "quantity": strconv.Itoa(stored.Quantity),
+	})
 }
 
 func (c *CraftCommand) handleList(s *discordgo.Session, i *discordgo.InteractionCreate) {

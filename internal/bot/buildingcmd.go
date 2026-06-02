@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 	"sync"
 
 	"foxlogi/internal/building"
+	"foxlogi/internal/events"
 	"foxlogi/internal/guildconfig"
 
 	"github.com/bwmarrin/discordgo"
@@ -27,14 +29,15 @@ type buildingDraft struct {
 type BuildingCommand struct {
 	repo     building.Repository
 	settings guildconfig.Repository
+	recorder events.Recorder
 
 	mu      sync.Mutex
 	pending map[string]buildingDraft // userID -> draft awaiting the password modal
 }
 
 // NewBuildingCommand creates the /building command.
-func NewBuildingCommand(repo building.Repository, settings guildconfig.Repository) *BuildingCommand {
-	return &BuildingCommand{repo: repo, settings: settings, pending: make(map[string]buildingDraft)}
+func NewBuildingCommand(repo building.Repository, settings guildconfig.Repository, recorder events.Recorder) *BuildingCommand {
+	return &BuildingCommand{repo: repo, settings: settings, recorder: recorder, pending: make(map[string]buildingDraft)}
 }
 
 // Definition describes /building and its subcommands.
@@ -198,6 +201,11 @@ func (c *BuildingCommand) ModalSubmit(s *discordgo.Session, i *discordgo.Interac
 	}
 	replyEphemeral(s, i, fmt.Sprintf("✅ Saved **%s** (#%d) — %s / %s. Reveal its code with `/building show`.",
 		b.Label, b.ID, b.Hexagon, b.Town))
+
+	// Never put the password in an event payload — list the safe fields explicitly.
+	logEvent(c.recorder, i.GuildID, userID, "building.add", map[string]string{
+		"label": b.Label, "hexagon": b.Hexagon, "town": b.Town,
+	})
 }
 
 func (c *BuildingCommand) handleList(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -252,6 +260,11 @@ func (c *BuildingCommand) handleShow(ctx context.Context, s *discordgo.Session, 
 	}
 	replyEphemeral(s, i, fmt.Sprintf("🔐 **%s** — %s / %s (%s · %s)\nCode: **%s**",
 		b.Label, b.Hexagon, b.Town, b.Type, b.Role, b.Password))
+
+	// Audit: who viewed a code. Never log the password.
+	logEvent(c.recorder, i.GuildID, interactionUserID(i), "building.show", map[string]string{
+		"building_id": strconv.FormatInt(b.ID, 10), "label": b.Label,
+	})
 }
 
 func (c *BuildingCommand) handleRemove(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate, sub *discordgo.ApplicationCommandInteractionDataOption) {
@@ -272,6 +285,10 @@ func (c *BuildingCommand) handleRemove(ctx context.Context, s *discordgo.Session
 		return
 	}
 	replyEphemeral(s, i, fmt.Sprintf("🗑️ Removed **%s** (#%d).", b.Label, b.ID))
+
+	logEvent(c.recorder, i.GuildID, interactionUserID(i), "building.remove", map[string]string{
+		"building_id": strconv.FormatInt(b.ID, 10), "label": b.Label,
+	})
 }
 
 // Autocomplete suggests the guild's buildings for show/remove, but only to
