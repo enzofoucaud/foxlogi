@@ -179,12 +179,28 @@ the bot posts its public messages, per server.
 - `/config craft-channel channel:#crafts` — route craft announcements and ready
   pings to a specific channel.
 - `/config request-channel channel:#requests` — route request pings to a specific channel.
-- `/config show` — show the current configuration.
+- `/config building-role-add role:@Logistics` — allow a role to view building codes.
+- `/config building-role-remove role:@Logistics` — revoke that access.
+- `/config show` — show the current configuration (channels + building roles).
 
 When a channel is set, the matching messages go there instead of the channel the
 command was run in; if the bot can't post there, it falls back to the origin
 channel. With nothing configured, behaviour is unchanged (messages post in the
 command channel).
+
+### Building access codes — `/building`
+
+Stores sensitive base/depot access codes, viewable only by **server managers**
+or members holding a role added via `/config building-role-add` — everyone else
+is refused and sees nothing. Codes are only ever shown in **ephemeral** replies.
+
+- `/building add label hexagon town type role` — opens a popup to enter the
+  password, then stores the entry.
+- `/building list` — list buildings (without their codes), privately.
+- `/building show building:<name>` — reveal a building's code (ephemeral).
+- `/building remove building:<name>` — delete a building.
+
+`show`/`remove` autocomplete the building from the saved entries.
 
 ## Development
 
@@ -203,16 +219,20 @@ The code is layered so storage and Discord concerns stay decoupled:
 - `internal/request` — domain models `Request` / `RequestItem` and their
   `Repository` interface (logistics request board). Storage- and Discord-agnostic.
 - `internal/guildconfig` — `Settings` and its `Repository` interface (per-guild
-  config: where craft/request messages are posted). Storage- and Discord-agnostic.
-- `internal/storage/sqlite` — implementations of all three `Repository` interfaces
+  config: message channels + building-code roles). Storage- and Discord-agnostic.
+- `internal/building` — `Building` and its `Repository` interface (role-gated
+  access codes). Storage- and Discord-agnostic.
+- `internal/storage/sqlite` — implementations of all four `Repository` interfaces
   over SQLite (`modernc.org/sqlite`, pure Go / no CGO), sharing one connection.
-  `sqlite.go` owns only the shared connection (open, migrate, close); each
-  feature's queries live in its own file (`craft.go`, `request.go`, `settings.go`).
+  Domain method names are distinct (e.g. `AddBuilding`) so one type satisfies
+  every interface. `sqlite.go` owns only the shared connection (open, migrate,
+  close); each feature's queries live in its own file (`craft.go`, `request.go`,
+  `settings.go`, `building.go`).
   Swappable for another backend.
-- `internal/bot` — slash commands (the `Command` registry) and the craft
-  completion scheduler. Depends only on the `craft.Repository` /
-  `request.Repository` / `guildconfig.Repository` interfaces, never on the
-  concrete storage type.
+- `internal/bot` — slash commands (the `Command` registry, with optional
+  `Autocompleter` / `ModalSubmitter`) and the craft completion scheduler. Depends
+  only on the `craft` / `request` / `guildconfig` / `building` `Repository`
+  interfaces, never on the concrete storage type.
 - `internal/config` — environment configuration (Viper).
 - `main.go` — the only place that constructs the concrete repository and injects
   it into the commands and scheduler.

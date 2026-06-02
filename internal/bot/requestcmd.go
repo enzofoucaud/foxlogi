@@ -221,12 +221,7 @@ func (c *RequestCommand) autocompleteItem(ctx context.Context, s *discordgo.Sess
 }
 
 func (c *RequestCommand) respondChoices(s *discordgo.Session, i *discordgo.InteractionCreate, choices []*discordgo.ApplicationCommandOptionChoice) {
-	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionApplicationCommandAutocompleteResult,
-		Data: &discordgo.InteractionResponseData{Choices: choices},
-	}); err != nil {
-		log.Printf("autocomplete respond: %v", err)
-	}
+	respondAutocomplete(s, i, choices)
 }
 
 func (c *RequestCommand) handleNew(s *discordgo.Session, i *discordgo.InteractionCreate, sub *discordgo.ApplicationCommandInteractionDataOption) {

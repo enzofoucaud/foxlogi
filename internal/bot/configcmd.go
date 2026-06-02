@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 
 	"foxlogi/internal/guildconfig"
 
@@ -37,9 +38,14 @@ func (c *ConfigCommand) Definition() *discordgo.ApplicationCommand {
 			},
 		}
 	}
+	roleOpt := func(desc string) []*discordgo.ApplicationCommandOption {
+		return []*discordgo.ApplicationCommandOption{
+			{Name: "role", Description: desc, Type: discordgo.ApplicationCommandOptionRole, Required: true},
+		}
+	}
 	return &discordgo.ApplicationCommand{
 		Name:                     "config",
-		Description:              "Configure where the bot posts craft and request messages",
+		Description:              "Configure the bot's channels and building-code access",
 		DefaultMemberPermissions: &manageServer,
 		DMPermission:             &dmPermission,
 		Options: []*discordgo.ApplicationCommandOption{
@@ -56,8 +62,20 @@ func (c *ConfigCommand) Definition() *discordgo.ApplicationCommand {
 				Options:     channelOpt("Target channel for request messages"),
 			},
 			{
+				Name:        "building-role-add",
+				Description: "Allow a role to view building codes",
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Options:     roleOpt("Role allowed to view building codes"),
+			},
+			{
+				Name:        "building-role-remove",
+				Description: "Revoke a role's access to building codes",
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Options:     roleOpt("Role to revoke"),
+			},
+			{
 				Name:        "show",
-				Description: "Show the current channel configuration",
+				Description: "Show the current configuration",
 				Type:        discordgo.ApplicationCommandOptionSubCommand,
 			},
 		},
@@ -80,9 +98,30 @@ func (c *ConfigCommand) Handle(s *discordgo.Session, i *discordgo.InteractionCre
 		c.setChannel(ctx, s, i, sub, c.settings.SetCraftChannel, "Craft")
 	case "request-channel":
 		c.setChannel(ctx, s, i, sub, c.settings.SetRequestChannel, "Request")
+	case "building-role-add":
+		c.setBuildingRole(ctx, s, i, sub, c.settings.AddBuildingRole, "now")
+	case "building-role-remove":
+		c.setBuildingRole(ctx, s, i, sub, c.settings.RemoveBuildingRole, "no longer")
 	case "show":
 		c.handleShow(ctx, s, i)
 	}
+}
+
+func (c *ConfigCommand) setBuildingRole(
+	ctx context.Context,
+	s *discordgo.Session,
+	i *discordgo.InteractionCreate,
+	sub *discordgo.ApplicationCommandInteractionDataOption,
+	apply func(context.Context, string, string) error,
+	verb string,
+) {
+	roleID := optionMap(sub.Options)["role"].RoleValue(nil, "").ID
+	if err := apply(ctx, i.GuildID, roleID); err != nil {
+		log.Printf("set building role: %v", err)
+		replyEphemeral(s, i, "❌ Failed to update building access.")
+		return
+	}
+	replyEphemeral(s, i, fmt.Sprintf("✅ <@&%s> can %s view building codes.", roleID, verb))
 }
 
 func (c *ConfigCommand) setChannel(
@@ -109,8 +148,23 @@ func (c *ConfigCommand) handleShow(ctx context.Context, s *discordgo.Session, i 
 		replyEphemeral(s, i, "❌ Failed to read the configuration.")
 		return
 	}
-	replyEphemeral(s, i, fmt.Sprintf("📋 Channel configuration:\n• Craft: %s\n• Request: %s",
-		channelMention(set.CraftChannelID), channelMention(set.RequestChannelID)))
+	roles, err := c.settings.ListBuildingRoles(ctx, i.GuildID)
+	if err != nil {
+		log.Printf("list building roles: %v", err)
+		replyEphemeral(s, i, "❌ Failed to read the configuration.")
+		return
+	}
+	buildingRoles := "_none (admins only)_"
+	if len(roles) > 0 {
+		mentions := make([]string, len(roles))
+		for idx, r := range roles {
+			mentions[idx] = fmt.Sprintf("<@&%s>", r)
+		}
+		buildingRoles = strings.Join(mentions, ", ")
+	}
+
+	replyEphemeral(s, i, fmt.Sprintf("📋 Configuration:\n• Craft channel: %s\n• Request channel: %s\n• Building-code roles: %s",
+		channelMention(set.CraftChannelID), channelMention(set.RequestChannelID), buildingRoles))
 }
 
 // channelMention renders a channel link, or a placeholder when unset.

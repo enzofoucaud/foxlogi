@@ -3,6 +3,7 @@ package bot
 
 import (
 	"log"
+	"strings"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -21,6 +22,13 @@ type Command interface {
 // option autocomplete suggestions.
 type Autocompleter interface {
 	Autocomplete(s *discordgo.Session, i *discordgo.InteractionCreate)
+}
+
+// ModalSubmitter is an optional interface a Command can implement to handle
+// modal submissions. The modal's CustomID must be prefixed with the command
+// name (e.g. "building:add") so the registry can route it.
+type ModalSubmitter interface {
+	ModalSubmit(s *discordgo.Session, i *discordgo.InteractionCreate)
 }
 
 // Registry holds the bot's commands and dispatches interactions to them.
@@ -73,6 +81,15 @@ func (r *Registry) Dispatch(s *discordgo.Session, i *discordgo.InteractionCreate
 		}
 		if ac, ok := cmd.(Autocompleter); ok {
 			ac.Autocomplete(s, i)
+		}
+	case discordgo.InteractionModalSubmit:
+		name, _, _ := strings.Cut(i.ModalSubmitData().CustomID, ":")
+		cmd, ok := r.commands[name]
+		if !ok {
+			return
+		}
+		if ms, ok := cmd.(ModalSubmitter); ok {
+			ms.ModalSubmit(s, i)
 		}
 	}
 }

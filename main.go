@@ -40,6 +40,7 @@ func main() {
 		bot.NewCraftCommand(repo, repo, cfg.SoonThreshold),
 		bot.NewRequestCommand(repo, repo),
 		bot.NewConfigCommand(repo),
+		bot.NewBuildingCommand(repo, repo),
 	)
 	// /help lists the registry's own commands, so it is added afterwards.
 	registry.Add(bot.NewHelpCommand(registry))

@@ -22,6 +22,14 @@ type Repository interface {
 	SetCraftChannel(ctx context.Context, guildID, channelID string) error
 	// SetRequestChannel sets the channel where request messages are posted.
 	SetRequestChannel(ctx context.Context, guildID, channelID string) error
+
+	// ListBuildingRoles returns the role ids allowed to view building codes.
+	ListBuildingRoles(ctx context.Context, guildID string) ([]string, error)
+	// AddBuildingRole authorises a role to view building codes (idempotent).
+	AddBuildingRole(ctx context.Context, guildID, roleID string) error
+	// RemoveBuildingRole revokes a role's access to building codes.
+	RemoveBuildingRole(ctx context.Context, guildID, roleID string) error
+
 	// Close releases underlying resources.
 	Close() error
 }

@@ -48,6 +48,39 @@ func sendWithFallback(s *discordgo.Session, primary, origin, msg string) {
 	}
 }
 
+// authorizedForBuildings reports whether the interacting member may view
+// building codes: a server manager (ManageGuild) always may, otherwise the
+// member must hold at least one of the configured roleIDs.
+func authorizedForBuildings(i *discordgo.InteractionCreate, roleIDs []string) bool {
+	if i.Member == nil {
+		return false
+	}
+	if i.Member.Permissions&discordgo.PermissionManageGuild != 0 {
+		return true
+	}
+	allowed := make(map[string]struct{}, len(roleIDs))
+	for _, id := range roleIDs {
+		allowed[id] = struct{}{}
+	}
+	for _, r := range i.Member.Roles {
+		if _, ok := allowed[r]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+// respondAutocomplete replies to an autocomplete interaction with the given
+// choices (nil for none).
+func respondAutocomplete(s *discordgo.Session, i *discordgo.InteractionCreate, choices []*discordgo.ApplicationCommandOptionChoice) {
+	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionApplicationCommandAutocompleteResult,
+		Data: &discordgo.InteractionResponseData{Choices: choices},
+	}); err != nil {
+		log.Printf("autocomplete respond: %v", err)
+	}
+}
+
 // focusedOption returns the option the user is currently typing during an
 // autocomplete interaction, or nil.
 func focusedOption(opts []*discordgo.ApplicationCommandInteractionDataOption) *discordgo.ApplicationCommandInteractionDataOption {
@@ -77,6 +110,35 @@ func clampChoiceName(name string) string {
 		return name
 	}
 	return string(r[:max])
+}
+
+// modalTextValue extracts a text input value (by CustomID) from a modal
+// submission, tolerating both pointer and value component types.
+func modalTextValue(data discordgo.ModalSubmitInteractionData, customID string) string {
+	for _, row := range data.Components {
+		var comps []discordgo.MessageComponent
+		switch ar := row.(type) {
+		case *discordgo.ActionsRow:
+			comps = ar.Components
+		case discordgo.ActionsRow:
+			comps = ar.Components
+		default:
+			continue
+		}
+		for _, comp := range comps {
+			switch ti := comp.(type) {
+			case *discordgo.TextInput:
+				if ti.CustomID == customID {
+					return ti.Value
+				}
+			case discordgo.TextInput:
+				if ti.CustomID == customID {
+					return ti.Value
+				}
+			}
+		}
+	}
+	return ""
 }
 
 // optionMap indexes interaction options by name for easy lookup.
