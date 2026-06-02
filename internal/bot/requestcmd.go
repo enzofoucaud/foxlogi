@@ -3,7 +3,7 @@ package bot
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"strconv"
 	"strings"
 	"time"
@@ -270,7 +270,7 @@ func (c *RequestCommand) handleNew(s *discordgo.Session, i *discordgo.Interactio
 		Deadline:  deadline,
 	})
 	if err != nil {
-		log.Printf("create request: %v", err)
+		slog.Error("create request", "err", err)
 		replyEphemeral(s, i, "❌ Failed to create the request, please try again.")
 		return
 	}
@@ -307,7 +307,7 @@ func (c *RequestCommand) handleAddItem(s *discordgo.Session, i *discordgo.Intera
 
 	req, found, err := c.repo.GetRequest(ctx, i.GuildID, id)
 	if err != nil {
-		log.Printf("get request: %v", err)
+		slog.Error("get request", "err", err)
 		replyEphemeral(s, i, "❌ Failed to load the request.")
 		return
 	}
@@ -321,7 +321,7 @@ func (c *RequestCommand) handleAddItem(s *discordgo.Session, i *discordgo.Intera
 	}
 
 	if _, err := c.repo.AddItem(ctx, req.ID, item, quantity); err != nil {
-		log.Printf("add item: %v", err)
+		slog.Error("add item", "err", err)
 		replyEphemeral(s, i, "❌ Failed to add the item.")
 		return
 	}
@@ -350,7 +350,7 @@ func (c *RequestCommand) handleList(s *discordgo.Session, i *discordgo.Interacti
 
 	reqs, err := c.repo.ListOpenByGuild(ctx, i.GuildID)
 	if err != nil {
-		log.Printf("list requests: %v", err)
+		slog.Error("list requests", "err", err)
 		replyEphemeral(s, i, "❌ Failed to fetch requests.")
 		return
 	}
@@ -382,7 +382,7 @@ func (c *RequestCommand) handleList(s *discordgo.Session, i *discordgo.Interacti
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{Embeds: []*discordgo.MessageEmbed{embed}},
 	}); err != nil {
-		log.Printf("respond list: %v", err)
+		slog.Error("respond list", "err", err)
 	}
 }
 
@@ -398,7 +398,7 @@ func (c *RequestCommand) handleFill(s *discordgo.Session, i *discordgo.Interacti
 
 	req, found, err := c.repo.GetRequest(ctx, i.GuildID, id)
 	if err != nil {
-		log.Printf("get request: %v", err)
+		slog.Error("get request", "err", err)
 		replyEphemeral(s, i, "❌ Failed to load the request.")
 		return
 	}
@@ -409,7 +409,7 @@ func (c *RequestCommand) handleFill(s *discordgo.Session, i *discordgo.Interacti
 
 	line, ok, err := c.repo.Fill(ctx, req.ID, item, amount)
 	if err != nil {
-		log.Printf("fill request: %v", err)
+		slog.Error("fill request", "err", err)
 		replyEphemeral(s, i, "❌ Failed to record the contribution.")
 		return
 	}
@@ -446,7 +446,7 @@ func (c *RequestCommand) handleFill(s *discordgo.Session, i *discordgo.Interacti
 
 	fulfilled, err := c.repo.IsFulfilled(doneCtx, req.ID)
 	if err != nil {
-		log.Printf("is fulfilled: %v", err)
+		slog.Error("is fulfilled", "err", err)
 		return
 	}
 	if !fulfilled {
@@ -456,7 +456,7 @@ func (c *RequestCommand) handleFill(s *discordgo.Session, i *discordgo.Interacti
 	// concurrent fill can't double-post the fulfilled message.
 	deleted, err := c.repo.DeleteRequest(doneCtx, req.ID)
 	if err != nil {
-		log.Printf("delete fulfilled request: %v", err)
+		slog.Error("delete fulfilled request", "err", err)
 		return
 	}
 	if deleted {
@@ -481,7 +481,7 @@ func (c *RequestCommand) handleCancel(s *discordgo.Session, i *discordgo.Interac
 
 	req, found, err := c.repo.GetRequest(ctx, i.GuildID, id)
 	if err != nil {
-		log.Printf("get request: %v", err)
+		slog.Error("get request", "err", err)
 		replyEphemeral(s, i, "❌ Failed to load the request.")
 		return
 	}
@@ -495,7 +495,7 @@ func (c *RequestCommand) handleCancel(s *discordgo.Session, i *discordgo.Interac
 	}
 
 	if _, err := c.repo.DeleteRequest(ctx, req.ID); err != nil {
-		log.Printf("cancel request: %v", err)
+		slog.Error("cancel request", "err", err)
 		replyEphemeral(s, i, "❌ Failed to cancel the request.")
 		return
 	}

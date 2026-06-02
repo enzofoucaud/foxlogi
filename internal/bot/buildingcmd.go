@@ -3,7 +3,7 @@ package bot
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"strconv"
 	"strings"
 	"sync"
@@ -81,7 +81,7 @@ func (c *BuildingCommand) Definition() *discordgo.ApplicationCommand {
 func (c *BuildingCommand) authorize(ctx context.Context, i *discordgo.InteractionCreate) bool {
 	roles, err := c.settings.ListBuildingRoles(ctx, i.GuildID)
 	if err != nil {
-		log.Printf("list building roles: %v", err)
+		slog.Error("list building roles", "err", err)
 		return false
 	}
 	return authorizedForBuildings(i, roles)
@@ -149,7 +149,7 @@ func (c *BuildingCommand) handleAdd(s *discordgo.Session, i *discordgo.Interacti
 			},
 		},
 	}); err != nil {
-		log.Printf("open building modal: %v", err)
+		slog.Error("open building modal", "err", err)
 	}
 }
 
@@ -195,7 +195,7 @@ func (c *BuildingCommand) ModalSubmit(s *discordgo.Session, i *discordgo.Interac
 		Password: password,
 	})
 	if err != nil {
-		log.Printf("add building: %v", err)
+		slog.Error("add building", "err", err)
 		replyEphemeral(s, i, "❌ Failed to save the building.")
 		return
 	}
@@ -211,7 +211,7 @@ func (c *BuildingCommand) ModalSubmit(s *discordgo.Session, i *discordgo.Interac
 func (c *BuildingCommand) handleList(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) {
 	builds, err := c.repo.ListBuildingsByGuild(ctx, i.GuildID)
 	if err != nil {
-		log.Printf("list buildings: %v", err)
+		slog.Error("list buildings", "err", err)
 		replyEphemeral(s, i, "❌ Failed to fetch buildings.")
 		return
 	}
@@ -242,7 +242,7 @@ func (c *BuildingCommand) handleList(ctx context.Context, s *discordgo.Session, 
 			Flags:  discordgo.MessageFlagsEphemeral,
 		},
 	}); err != nil {
-		log.Printf("respond building list: %v", err)
+		slog.Error("respond building list", "err", err)
 	}
 }
 
@@ -250,7 +250,7 @@ func (c *BuildingCommand) handleShow(ctx context.Context, s *discordgo.Session, 
 	id := optionMap(sub.Options)["building"].IntValue()
 	b, found, err := c.repo.GetBuilding(ctx, i.GuildID, id)
 	if err != nil {
-		log.Printf("get building: %v", err)
+		slog.Error("get building", "err", err)
 		replyEphemeral(s, i, "❌ Failed to load the building.")
 		return
 	}
@@ -271,7 +271,7 @@ func (c *BuildingCommand) handleRemove(ctx context.Context, s *discordgo.Session
 	id := optionMap(sub.Options)["building"].IntValue()
 	b, found, err := c.repo.GetBuilding(ctx, i.GuildID, id)
 	if err != nil {
-		log.Printf("get building: %v", err)
+		slog.Error("get building", "err", err)
 		replyEphemeral(s, i, "❌ Failed to load the building.")
 		return
 	}
@@ -280,7 +280,7 @@ func (c *BuildingCommand) handleRemove(ctx context.Context, s *discordgo.Session
 		return
 	}
 	if err := c.repo.DeleteBuilding(ctx, i.GuildID, b.ID); err != nil {
-		log.Printf("delete building: %v", err)
+		slog.Error("delete building", "err", err)
 		replyEphemeral(s, i, "❌ Failed to remove the building.")
 		return
 	}

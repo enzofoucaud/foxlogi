@@ -3,7 +3,7 @@ package main
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
@@ -19,18 +19,28 @@ import (
 func main() {
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatalf("config: %v", err)
+		slog.Error("load config", "err", err)
+		os.Exit(1)
 	}
+
+	level, known := levelFromString(cfg.LogLevel)
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level})))
+	if !known {
+		slog.Warn("unknown LOG_LEVEL, defaulting to info", "value", cfg.LogLevel)
+	}
+	slog.Info("starting foxlogi", "db_path", cfg.DBPath, "soon_threshold", cfg.SoonThreshold, "log_level", level)
 
 	repo, err := sqlite.Open(cfg.DBPath)
 	if err != nil {
-		log.Fatalf("storage: %v", err)
+		slog.Error("open storage", "err", err)
+		os.Exit(1)
 	}
 	defer repo.Close()
 
 	session, err := discordgo.New("Bot " + cfg.Token)
 	if err != nil {
-		log.Fatalf("discord session: %v", err)
+		slog.Error("create discord session", "err", err)
+		os.Exit(1)
 	}
 	session.Identify.Intents = discordgo.IntentsGuilds
 
@@ -50,19 +60,20 @@ func main() {
 	})
 	session.AddHandler(func(s *discordgo.Session, r *discordgo.Ready) {
 		if s.State == nil || s.State.User == nil {
-			log.Println("ready received but session user is not populated; skipping registration")
+			slog.Warn("ready received but session user is not populated; skipping registration")
 			return
 		}
-		log.Printf("connected as %s", r.User.Username)
+		slog.Info("connected", "user", r.User.Username, "guilds", len(r.Guilds))
 		for _, g := range r.Guilds {
 			if err := registry.Register(s, g.ID); err != nil {
-				log.Printf("register commands for guild %s: %v", g.ID, err)
+				slog.Error("register commands", "guild", g.ID, "err", err)
 			}
 		}
 	})
 
 	if err := session.Open(); err != nil {
-		log.Fatalf("open discord: %v", err)
+		slog.Error("open discord", "err", err)
+		os.Exit(1)
 	}
 	defer session.Close()
 
@@ -71,9 +82,26 @@ func main() {
 	scheduler := bot.NewScheduler(repo, repo, repo, session, time.Minute)
 	go scheduler.Run(ctx)
 
-	log.Println("foxlogi is running. Press Ctrl+C to stop.")
+	slog.Info("foxlogi is running; press Ctrl+C to stop")
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 	<-stop
-	log.Println("shutting down...")
+	slog.Info("shutting down")
+}
+
+// levelFromString maps a LOG_LEVEL value to an slog.Level; ok is false for an
+// unrecognised value (the caller defaults to info and warns).
+func levelFromString(s string) (level slog.Level, ok bool) {
+	switch s {
+	case "debug":
+		return slog.LevelDebug, true
+	case "info", "":
+		return slog.LevelInfo, true
+	case "warn", "warning":
+		return slog.LevelWarn, true
+	case "error":
+		return slog.LevelError, true
+	default:
+		return slog.LevelInfo, false
+	}
 }

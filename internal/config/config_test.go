@@ -45,6 +45,27 @@ func TestLoadReadsDotenv(t *testing.T) {
 	}
 }
 
+func TestLogLevelDefaultAndOverride(t *testing.T) {
+	os.Unsetenv("LOG_LEVEL")
+	writeDotenv(t, "DISCORD_TOKEN=tok\n")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if cfg.LogLevel != "info" {
+		t.Errorf("default log level: want info, got %q", cfg.LogLevel)
+	}
+
+	t.Setenv("LOG_LEVEL", "DEBUG")
+	cfg, err = Load()
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if cfg.LogLevel != "debug" {
+		t.Errorf("log level should be lowercased: got %q", cfg.LogLevel)
+	}
+}
+
 func TestEnvOverridesDotenv(t *testing.T) {
 	writeDotenv(t, "DISCORD_TOKEN=tok-from-file\n")
 	t.Setenv("DISCORD_TOKEN", "tok-from-env")

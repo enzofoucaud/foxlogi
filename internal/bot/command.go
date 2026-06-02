@@ -2,7 +2,7 @@
 package bot
 
 import (
-	"log"
+	"log/slog"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
@@ -66,30 +66,45 @@ func (r *Registry) Register(s *discordgo.Session, guildID string) error {
 func (r *Registry) Dispatch(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	switch i.Type {
 	case discordgo.InteractionApplicationCommand:
-		name := i.ApplicationCommandData().Name
-		cmd, ok := r.commands[name]
+		data := i.ApplicationCommandData()
+		cmd, ok := r.commands[data.Name]
 		if !ok {
-			log.Printf("no handler for command %q", name)
+			slog.Warn("no handler for command", "command", data.Name)
 			return
 		}
+		// Log command/subcommand/user/guild only — never option values (secrets).
+		slog.Info("command",
+			"command", data.Name, "subcommand", subcommandName(data.Options),
+			"user", interactionUserID(i), "guild", i.GuildID)
 		cmd.Handle(s, i)
 	case discordgo.InteractionApplicationCommandAutocomplete:
-		name := i.ApplicationCommandData().Name
-		cmd, ok := r.commands[name]
+		data := i.ApplicationCommandData()
+		cmd, ok := r.commands[data.Name]
 		if !ok {
 			return
 		}
 		if ac, ok := cmd.(Autocompleter); ok {
+			slog.Debug("autocomplete", "command", data.Name, "user", interactionUserID(i), "guild", i.GuildID)
 			ac.Autocomplete(s, i)
 		}
 	case discordgo.InteractionModalSubmit:
-		name, _, _ := strings.Cut(i.ModalSubmitData().CustomID, ":")
+		customID := i.ModalSubmitData().CustomID
+		name, _, _ := strings.Cut(customID, ":")
 		cmd, ok := r.commands[name]
 		if !ok {
 			return
 		}
 		if ms, ok := cmd.(ModalSubmitter); ok {
+			slog.Info("modal submit", "custom_id", customID, "user", interactionUserID(i), "guild", i.GuildID)
 			ms.ModalSubmit(s, i)
 		}
 	}
+}
+
+// subcommandName returns the invoked subcommand name, or "" if there isn't one.
+func subcommandName(opts []*discordgo.ApplicationCommandInteractionDataOption) string {
+	if len(opts) > 0 && opts[0].Type == discordgo.ApplicationCommandOptionSubCommand {
+		return opts[0].Name
+	}
+	return ""
 }

@@ -2,7 +2,7 @@ package bot
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -19,8 +19,10 @@ func logEvent(rec events.Recorder, guildID, userID, eventType string, payload ma
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 	if err := rec.RecordEvent(ctx, guildID, userID, eventType, payload); err != nil {
-		log.Printf("record event %s: %v", eventType, err)
+		slog.Warn("record event failed", "type", eventType, "guild", guildID, "err", err)
+		return
 	}
+	slog.Debug("event recorded", "type", eventType, "guild", guildID, "user", userID)
 }
 
 const (
@@ -35,7 +37,7 @@ const (
 func resolveChannel(ctx context.Context, settings guildconfig.Repository, guildID, origin string, pick func(guildconfig.Settings) string) string {
 	set, err := settings.Get(ctx, guildID)
 	if err != nil {
-		log.Printf("guild settings lookup: %v", err)
+		slog.Warn("guild settings lookup failed", "guild", guildID, "err", err)
 		return origin
 	}
 	if ch := pick(set); ch != "" {
@@ -48,16 +50,19 @@ func resolveChannel(ctx context.Context, settings guildconfig.Repository, guildI
 // origin channel differs, it retries there. Both failures are logged.
 func sendWithFallback(s *discordgo.Session, primary, origin, msg string) {
 	if _, err := s.ChannelMessageSend(primary, msg); err == nil {
+		slog.Debug("message sent", "channel", primary)
 		return
 	} else {
-		log.Printf("send to channel %s failed: %v", primary, err)
+		slog.Warn("message send failed", "channel", primary, "err", err)
 	}
 	if origin == "" || origin == primary {
 		return
 	}
 	if _, err := s.ChannelMessageSend(origin, msg); err != nil {
-		log.Printf("fallback send to channel %s failed: %v", origin, err)
+		slog.Warn("fallback message send failed", "channel", origin, "err", err)
+		return
 	}
+	slog.Debug("message sent to fallback channel", "channel", origin)
 }
 
 // authorizedForBuildings reports whether the interacting member may view
@@ -89,7 +94,7 @@ func respondAutocomplete(s *discordgo.Session, i *discordgo.InteractionCreate, c
 		Type: discordgo.InteractionApplicationCommandAutocompleteResult,
 		Data: &discordgo.InteractionResponseData{Choices: choices},
 	}); err != nil {
-		log.Printf("autocomplete respond: %v", err)
+		slog.Warn("autocomplete respond failed", "err", err)
 	}
 }
 
@@ -199,6 +204,6 @@ func replyEphemeral(s *discordgo.Session, i *discordgo.InteractionCreate, msg st
 			Flags:   discordgo.MessageFlagsEphemeral,
 		},
 	}); err != nil {
-		log.Printf("respond ephemeral: %v", err)
+		slog.Warn("respond ephemeral failed", "err", err)
 	}
 }

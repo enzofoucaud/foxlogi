@@ -11,6 +11,7 @@ import (
 	"embed"
 	"fmt"
 	"io/fs"
+	"log/slog"
 
 	"github.com/pressly/goose/v3"
 
@@ -38,27 +39,31 @@ func Open(path string) (*Repo, error) {
 		return nil, fmt.Errorf("open sqlite: %w", err)
 	}
 	db.SetMaxOpenConns(1)
-	if err := migrate(db); err != nil {
+	applied, err := migrate(db)
+	if err != nil {
 		db.Close()
 		return nil, err
 	}
+	slog.Info("database ready", "path", path, "migrations_applied", applied)
 	return &Repo{db: db}, nil
 }
 
-// migrate applies every pending migration to db, in version order.
-func migrate(db *sql.DB) error {
+// migrate applies every pending migration to db, in version order, and returns
+// the number of migrations applied.
+func migrate(db *sql.DB) (int, error) {
 	sub, err := fs.Sub(migrationsFS, "migrations")
 	if err != nil {
-		return fmt.Errorf("migrations fs: %w", err)
+		return 0, fmt.Errorf("migrations fs: %w", err)
 	}
 	provider, err := goose.NewProvider(goose.DialectSQLite3, db, sub)
 	if err != nil {
-		return fmt.Errorf("goose provider: %w", err)
+		return 0, fmt.Errorf("goose provider: %w", err)
 	}
-	if _, err := provider.Up(context.Background()); err != nil {
-		return fmt.Errorf("apply migrations: %w", err)
+	results, err := provider.Up(context.Background())
+	if err != nil {
+		return 0, fmt.Errorf("apply migrations: %w", err)
 	}
-	return nil
+	return len(results), nil
 }
 
 // Close releases the database handle.

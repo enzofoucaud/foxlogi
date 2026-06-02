@@ -2,7 +2,7 @@ package bot
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"sort"
 	"strings"
 
@@ -61,6 +61,6 @@ func (c *HelpCommand) Handle(s *discordgo.Session, i *discordgo.InteractionCreat
 			Flags:  discordgo.MessageFlagsEphemeral,
 		},
 	}); err != nil {
-		log.Printf("respond help: %v", err)
+		slog.Error("respond help", "err", err)
 	}
 }

@@ -3,7 +3,7 @@ package bot
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"strconv"
 	"time"
 
@@ -46,7 +46,7 @@ func (sc *Scheduler) Run(ctx context.Context) {
 func (sc *Scheduler) notifyDue(ctx context.Context) {
 	due, err := sc.repo.Due(ctx, time.Now())
 	if err != nil {
-		log.Printf("scheduler: fetch due crafts: %v", err)
+		slog.Error("scheduler: fetch due crafts", "err", err)
 		return
 	}
 	for _, c := range due {
@@ -60,7 +60,7 @@ func (sc *Scheduler) notifyDue(ctx context.Context) {
 		// Remove regardless of send outcome so a deleted channel or revoked
 		// permission can't trap the craft in an infinite retry loop.
 		if err := sc.repo.Delete(ctx, c.ID); err != nil {
-			log.Printf("scheduler: delete craft %d: %v", c.ID, err)
+			slog.Error("scheduler: delete craft", "craft_id", c.ID, "err", err)
 		}
 	}
 }

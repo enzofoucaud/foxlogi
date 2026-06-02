@@ -3,7 +3,7 @@ package bot
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"strconv"
 	"strings"
 	"time"
@@ -136,7 +136,7 @@ func (c *CraftCommand) handleAdd(s *discordgo.Session, i *discordgo.InteractionC
 		Completion: completion,
 	})
 	if err != nil {
-		log.Printf("add craft: %v", err)
+		slog.Error("add craft", "err", err)
 		replyEphemeral(s, i, "❌ Failed to save the craft, please try again.")
 		return
 	}
@@ -166,7 +166,7 @@ func (c *CraftCommand) handleList(s *discordgo.Session, i *discordgo.Interaction
 
 	crafts, err := c.repo.ListByGuild(ctx, i.GuildID)
 	if err != nil {
-		log.Printf("list crafts: %v", err)
+		slog.Error("list crafts", "err", err)
 		replyEphemeral(s, i, "❌ Failed to fetch crafts.")
 		return
 	}
@@ -204,6 +204,6 @@ func (c *CraftCommand) handleList(s *discordgo.Session, i *discordgo.Interaction
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{Embeds: []*discordgo.MessageEmbed{embed}},
 	}); err != nil {
-		log.Printf("respond list: %v", err)
+		slog.Error("respond list", "err", err)
 	}
 }

@@ -3,7 +3,7 @@ package bot
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"strings"
 
 	"foxlogi/internal/events"
@@ -120,7 +120,7 @@ func (c *ConfigCommand) setBuildingRole(
 ) {
 	roleID := optionMap(sub.Options)["role"].RoleValue(nil, "").ID
 	if err := apply(ctx, i.GuildID, roleID); err != nil {
-		log.Printf("set building role: %v", err)
+		slog.Error("set building role", "err", err)
 		replyEphemeral(s, i, "❌ Failed to update building access.")
 		return
 	}
@@ -139,7 +139,7 @@ func (c *ConfigCommand) setChannel(
 ) {
 	channelID := optionMap(sub.Options)["channel"].ChannelValue(nil).ID
 	if err := set(ctx, i.GuildID, channelID); err != nil {
-		log.Printf("set %s channel: %v", label, err)
+		slog.Error("set channel", "feature", label, "err", err)
 		replyEphemeral(s, i, "❌ Failed to save the configuration.")
 		return
 	}
@@ -150,13 +150,13 @@ func (c *ConfigCommand) setChannel(
 func (c *ConfigCommand) handleShow(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) {
 	set, err := c.settings.Get(ctx, i.GuildID)
 	if err != nil {
-		log.Printf("get settings: %v", err)
+		slog.Error("get settings", "err", err)
 		replyEphemeral(s, i, "❌ Failed to read the configuration.")
 		return
 	}
 	roles, err := c.settings.ListBuildingRoles(ctx, i.GuildID)
 	if err != nil {
-		log.Printf("list building roles: %v", err)
+		slog.Error("list building roles", "err", err)
 		replyEphemeral(s, i, "❌ Failed to read the configuration.")
 		return
 	}

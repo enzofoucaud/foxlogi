@@ -61,6 +61,7 @@ seconds of the bot joining (no need to wait for global propagation).
 | `DISCORD_TOKEN`  | yes      | —            | Discord bot token                                       |
 | `CRAFT_DB_PATH`  | no       | `foxlogi.db` | Path to the SQLite database file                        |
 | `SOON_THRESHOLD` | no       | `10m`        | Crafts within this window are flagged `⏳ soon` in lists |
+| `LOG_LEVEL`      | no       | `info`       | Console log verbosity: `debug`, `info`, `warn`, `error` |
 
 ## Run
 
@@ -71,6 +72,7 @@ DISCORD_TOKEN=your-token-here
 # optional:
 # CRAFT_DB_PATH=foxlogi.db
 # SOON_THRESHOLD=10m
+# LOG_LEVEL=info
 ```
 
 Then:
