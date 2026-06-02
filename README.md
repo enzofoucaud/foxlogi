@@ -164,11 +164,12 @@ The `id` field autocompletes from open requests (only your own for `additem`
 and `cancel`), and `fill`'s `item` field autocompletes from the targeted
 request's actual items — so neither can be mistyped.
 
-The full lifecycle is mirrored as public activity messages (no ping) so the
-channel acts as a logistics log: opening a request, adding an item, each
-contribution, fulfilment, and cancellation. When every line is fully delivered,
-the bot posts a fulfilled notice pinging the requester and removes the request
-automatically.
+The request lifecycle is mirrored as public activity messages (no ping) so the
+channel acts as a logistics log: opening a request, each contribution,
+fulfilment, and cancellation. Adding items is confirmed only to the requester
+(ephemeral) to avoid spamming the channel while a large request is built. When
+every line is fully delivered, the bot posts a fulfilled notice pinging the
+requester and removes the request automatically.
 
 ### Server configuration — `/config`
 

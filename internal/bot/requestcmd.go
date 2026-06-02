@@ -319,16 +319,14 @@ func (c *RequestCommand) handleAddItem(s *discordgo.Session, i *discordgo.Intera
 		return
 	}
 
-	line, err := c.repo.AddItem(ctx, req.ID, item, quantity)
-	if err != nil {
+	if _, err := c.repo.AddItem(ctx, req.ID, item, quantity); err != nil {
 		log.Printf("add item: %v", err)
 		replyEphemeral(s, i, "❌ Failed to add the item.")
 		return
 	}
+	// Ephemeral only: adding items one by one would otherwise spam the channel
+	// while a large request is being built.
 	replyEphemeral(s, i, fmt.Sprintf("✅ Added **%d× %s** to request #%d.", quantity, item, req.ID))
-
-	c.announce(s, i.GuildID, i.ChannelID,
-		fmt.Sprintf("➕ Request #%d needs **%d× %s**.", req.ID, line.Quantity, line.Item))
 }
 
 // announce posts a no-ping activity message to the guild's configured request
