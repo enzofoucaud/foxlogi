@@ -31,17 +31,20 @@ services:
     container_name: foxlogi
     restart: always
 
-    # Secrets and overrides live outside the image. Keep ../.env.prod off git
-    # (it matches the .env ignore rule if you name it .env). DISCORD_TOKEN is
-    # required; CRAFT_DB_PATH already defaults to /data/foxlogi.db in the image.
+    # Secrets and overrides live outside the image, in ../.env.prod (keep it off
+    # git). DISCORD_TOKEN is required; CRAFT_DB_PATH already defaults to
+    # /data/foxlogi.db in the image and SOON_THRESHOLD to 10m.
+    #
+    # NOTE: do not also list these under `environment:` — a compose `environment`
+    # value (even an empty `${VAR:-}`) overrides env_file and would blank the
+    # token. To inject from the host shell instead, use the passthrough form
+    # below (no value), which only applies when the host var is actually set.
     env_file:
       - path: ../.env.prod
         required: false
     environment:
-      # A real env var wins over the .env file inside the container, letting the
-      # host's shell / secrets manager inject the token without a file on disk.
-      DISCORD_TOKEN: ${DISCORD_TOKEN:-}
-      SOON_THRESHOLD: ${SOON_THRESHOLD:-10m}
+      - DISCORD_TOKEN
+      - SOON_THRESHOLD
 
     volumes:
       # Persists the SQLite database across restarts, redeploys and image bumps.
