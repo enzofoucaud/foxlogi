@@ -35,16 +35,12 @@ services:
     # git). DISCORD_TOKEN is required; CRAFT_DB_PATH already defaults to
     # /data/foxlogi.db in the image and SOON_THRESHOLD to 10m.
     #
-    # NOTE: do not also list these under `environment:` — a compose `environment`
-    # value (even an empty `${VAR:-}`) overrides env_file and would blank the
-    # token. To inject from the host shell instead, use the passthrough form
-    # below (no value), which only applies when the host var is actually set.
+    # NOTE: deliberately no `environment:` block here. A compose `environment`
+    # entry (even a passthrough `- VAR` whose host value is unset) overrides
+    # env_file and would blank the token. Put all config in ../.env.prod.
     env_file:
       - path: ../.env.prod
         required: false
-    environment:
-      - DISCORD_TOKEN
-      - SOON_THRESHOLD
 
     volumes:
       # Persists the SQLite database across restarts, redeploys and image bumps.
